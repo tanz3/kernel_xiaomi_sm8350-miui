@@ -911,7 +911,7 @@ enum cgroup1_param {
 	Opt_xattr,
 };
 
-static const struct fs_parameter_spec cgroup1_param_specs[] = {
+const struct fs_parameter_spec cgroup1_fs_parameters[] = {
 	fsparam_flag  ("all",		Opt_all),
 	fsparam_flag  ("clone_children", Opt_clone_children),
 	fsparam_flag  ("cpuset_v2_mode", Opt_cpuset_v2_mode),
@@ -923,10 +923,6 @@ static const struct fs_parameter_spec cgroup1_param_specs[] = {
 	{}
 };
 
-const struct fs_parameter_description cgroup1_fs_parameters = {
-	.specs		= cgroup1_param_specs,
-};
-
 int cgroup1_parse_param(struct fs_context *fc, struct fs_parameter *param)
 {
 	struct cgroup_fs_context *ctx = cgroup_fc2context(fc);
@@ -934,7 +930,7 @@ int cgroup1_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	struct fs_parse_result result;
 	int opt, i;
 
-	opt = fs_parse(fc, &cgroup1_fs_parameters, param, &result);
+	opt = fs_parse(fc, cgroup1_fs_parameters, param, &result);
 	if (opt == -ENOPARAM) {
 		if (strcmp(param->key, "source") == 0) {
 			if (param->type != fs_value_is_string)
