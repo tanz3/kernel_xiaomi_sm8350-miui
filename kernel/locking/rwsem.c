@@ -28,7 +28,6 @@
 #include <linux/rwsem.h>
 #include <linux/atomic.h>
 
-#include "rwsem.h"
 #include "lock_events.h"
 
 #include <trace/hooks/dtask.h>
@@ -1249,7 +1248,7 @@ static inline int __down_read_common(struct rw_semaphore *sem, int state)
 	return 0;
 }
 
-inline void __down_read(struct rw_semaphore *sem)
+static inline void __down_read(struct rw_semaphore *sem)
 {
 	__down_read_common(sem, TASK_UNINTERRUPTIBLE);
 }
@@ -1289,7 +1288,7 @@ static inline int __down_write_common(struct rw_semaphore *sem, int state)
 	return 0;
 }
 
-inline void __down_write(struct rw_semaphore *sem)
+static inline void __down_write(struct rw_semaphore *sem)
 {
 	__down_write_common(sem, TASK_UNINTERRUPTIBLE);
 }
@@ -1308,7 +1307,7 @@ static inline int __down_write_trylock(struct rw_semaphore *sem)
 /*
  * unlock after reading
  */
-inline void __up_read(struct rw_semaphore *sem)
+static inline void __up_read(struct rw_semaphore *sem)
 {
 	long tmp;
 
@@ -1328,7 +1327,7 @@ inline void __up_read(struct rw_semaphore *sem)
 /*
  * unlock after writing
  */
-inline void __up_write(struct rw_semaphore *sem)
+static inline void __up_write(struct rw_semaphore *sem)
 {
 	long tmp;
 
