@@ -14,7 +14,7 @@
  */
 
 #include <linux/compiler.h>
-#include <linux/kcsan.h>
+#include <linux/kcsan-checks.h>
 #include <linux/lockdep.h>
 #include <linux/mutex.h>
 #include <linux/ww_mutex.h>
