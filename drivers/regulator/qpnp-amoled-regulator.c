@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)	"AMOLED: %s: " fmt, __func__
@@ -103,7 +104,8 @@ struct qpnp_amoled {
 	u32			ab_base;
 	u32			ibb_base;
 
-	struct work_struct		ibb_ccm_wa_work;
+    struct work_struct		ibb_ccm_wa_work;
+    struct wakeup_source	*wake_source;
 };
 
 enum reg_type {
@@ -613,6 +615,10 @@ static int qpnp_amoled_hw_init(struct qpnp_amoled *chip)
 		rc = qpnp_amoled_write(chip, IBB_SMART_PS_CTL(chip), &val, 1);
 		if (rc < 0)
 			return rc;
+
+		chip->wake_source = wakeup_source_register(NULL, "qcom-amoled");
+		if (!chip->wake_source)
+			return -EINVAL;
 
 		INIT_WORK(&chip->ibb_ccm_wa_work, qpnp_amoled_toggle_ps_ctl);
 	}

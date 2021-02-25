@@ -3,10 +3,15 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  */
+
+#ifdef CONFIG_FACTORY_BUILD
+#define DEBUG
+#endif
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
@@ -932,7 +937,7 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 
 	if (pm_runtime_suspended(dwc->sysdev)) {
 		dev_err(dwc->dev, "fail ep_enable %s device is into LPM\n",
-					dep->name);
+			dep->name);
 		return -EINVAL;
 	}
 
@@ -2330,7 +2335,8 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	dwc->softconnect = is_on;
 
 	if (((dwc->dr_mode > USB_DR_MODE_HOST) && !dwc->vbus_active)
-			|| !dwc->gadget_driver || dwc->err_evt_seen) {
+			|| !dwc->gadget_driver || (dwc->err_evt_seen &&
+				dwc->softconnect)) {
 		/*
 		 * Need to wait for vbus_session(on) from otg driver or to
 		 * the udc_start.
