@@ -1853,7 +1853,7 @@ static void fts_update_gamemode_data(struct fts_ts_data *ts_data)
 	pm_relax(ts_data->dev);
 }
 
-static void fts_update_gesture_state(struct fts_ts_data *ts_data, int bit, bool enable)
+void fts_update_gesture_state(struct fts_ts_data *ts_data, int bit, bool enable)
 {
 	if (ts_data->suspended) {
 		FTS_ERROR("TP is suspended, do not update gesture state");
