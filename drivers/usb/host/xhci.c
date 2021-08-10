@@ -3,6 +3,7 @@
  * xHCI host controller driver
  *
  * Copyright (C) 2008 Intel Corp.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Sarah Sharp
  * Some code borrowed from the Linux EHCI driver.
@@ -1126,7 +1127,10 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 	bool			pending_portevent = false;
 	bool			reinit_xhc = false;
 
-	if (!hcd->state)
+	if (!hcd)
+		return 0;
+
+        if (!hcd->state)
 		return 0;
 
 	/* Wait a bit if either of the roothubs need to settle from the
