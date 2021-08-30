@@ -4719,7 +4719,6 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 }
 
 static int (*embms_tm_multicast_recv)(struct sk_buff *skb) __rcu __read_mostly;
-EXPORT_SYMBOL(embms_tm_multicast_recv);
 
 void process_embms_receive_skb(struct sk_buff *skb)
 {
