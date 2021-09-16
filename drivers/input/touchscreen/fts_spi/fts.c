@@ -3604,6 +3604,27 @@ static ssize_t fts_secure_touch_show (struct device *dev, struct device_attribut
 	return scnprintf(buf, PAGE_SIZE, "%d", value);
 }
 #endif
+
+#ifdef FTS_FOD_AREA_REPORT
+static ssize_t fts_fod_status_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+
+	return snprintf(buf, TSP_BUF_SIZE, "%d\n", info->fod_status);
+}
+
+static ssize_t fts_fod_status_store(struct device *dev, struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+
+	sscanf(buf, "%u", &info->fod_status);
+	queue_work(info->event_wq, &info->mode_handler_work);
+
+	return count;
+}
+#endif
+
 static DEVICE_ATTR(fts_lockdown, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   fts_lockdown_show, fts_lockdown_store);
 static DEVICE_ATTR(fwupdate, (S_IRUGO | S_IWUSR | S_IWGRP), fts_fwupdate_show,
@@ -3668,6 +3689,11 @@ static DEVICE_ATTR(grip_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   fts_grip_enable_show, fts_grip_enable_store);
 static DEVICE_ATTR(grip_area, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   fts_grip_area_show, fts_grip_area_store);
+
+#ifdef FTS_FOD_AREA_REPORT
+static DEVICE_ATTR(fod_status, (S_IRUGO | S_IWUSR | S_IWGRP),
+		   fts_fod_status_show, fts_fod_status_store);
+#endif
 
 static DEVICE_ATTR(hover_tune, (S_IRUGO | S_IWUSR | S_IWGRP), NULL, fts_hover_autotune_store);
 
@@ -8763,6 +8789,9 @@ static int fts_probe(struct spi_device *client)
 	mutex_unlock(&info->fod_mutex);
 #else
 	info->fod_status = -1;
+	error = sysfs_create_file(&info->fts_touch_dev->kobj, &dev_attr_fod_status.attr);
+	if (error)
+		logError(1, "%s ERROR: Failed to create fod_status sysfs group!\n", tag);
 #endif
 	info->fod_icon_status = 1;
 	error =
