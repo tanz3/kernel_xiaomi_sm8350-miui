@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -365,12 +366,18 @@ void cam_hw_cdm_dump_core_debug_registers(struct cam_hw_info *cdm_hw,
 			cam_cdm_read_hw_reg(cdm_hw,
 				inv_cmd_log->data_regs->icl_last_data_0,
 				&dump_reg[0]);
+			CAM_INFO(CAM_CDM, "First word of Last Good cmd: 0x%x",
+				dump_reg[0]);
 			cam_cdm_read_hw_reg(cdm_hw,
 				inv_cmd_log->data_regs->icl_last_data_1,
 				&dump_reg[1]);
+			CAM_INFO(CAM_CDM, "Second word of Last Good cmd: 0x%x",
+				dump_reg[1]);
 			cam_cdm_read_hw_reg(cdm_hw,
 				inv_cmd_log->data_regs->icl_last_data_2,
 				&dump_reg[2]);
+			CAM_INFO(CAM_CDM, "Third word of Last Good cmd: 0x%x",
+				dump_reg[2]);
 
 
 			CAM_INFO(CAM_CDM, "Last good cmd word 0x%x 0x%x 0x%x",
