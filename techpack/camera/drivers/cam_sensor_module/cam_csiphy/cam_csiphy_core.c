@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
+#include <linux/hwid.h>
 
 #include <dt-bindings/msm/msm-camera.h>
 
@@ -928,12 +930,13 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 		}
 
 		//csiphy_3phase only
-		if ((csiphy_dev->csiphy_info[index].data_rate/1000000) > csiphy_hack_rate_mb)
-		{
-			for (i = 0; i < csiphy_override_cnt; i += 2)
-			{
-				   cam_io_w_mb(csiphy_override[i+1],  csiphybase + csiphy_override[i]);
-				   CAM_DBG(CAM_CSIPHY, "csiphy_cfg_override [0x%x, 0x%x]", csiphy_override[i], csiphy_override[i+1]);
+		if (get_hw_version_platform() == HARDWARE_PROJECT_K11) {
+			CAM_DBG(CAM_CSIPHY, "just for k11 modify csiphy_cfg register");
+			if ((csiphy_dev->csiphy_info[index].data_rate/1000000) > csiphy_hack_rate_mb) {
+				for (i = 0; i < csiphy_override_cnt; i += 2) {
+					cam_io_w_mb(csiphy_override[i+1],  csiphybase + csiphy_override[i]);
+					CAM_DBG(CAM_CSIPHY, "csiphy_cfg_override [0x%x, 0x%x]", csiphy_override[i], csiphy_override[i+1]);
+				}
 			}
 		}
 	}
