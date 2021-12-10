@@ -15,7 +15,7 @@ static inline void __lse_atomic_##op(int i, atomic_t *v)		\
 {									\
 	asm volatile(							\
 	__LSE_PREAMBLE							\
-	"	prfm	pstl1strm, %[v]\n"					\
+	"	prfm	pstl1strm, %[v]\n"				\
 	"	" #asm_op "	%w[i], %[v]\n"				\
 	: [i] "+r" (i), [v] "+Q" (v->counter)				\
 	: "r" (v));							\
@@ -33,7 +33,7 @@ static inline int __lse_atomic_fetch_##op##name(int i, atomic_t *v)	\
 {									\
 	asm volatile(							\
 	__LSE_PREAMBLE							\
-	"	prfm	pstl1strm, %[v]\n"					\
+	"	prfm	pstl1strm, %[v]\n"				\
 	"	" #asm_op #mb "	%w[i], %w[i], %[v]"			\
 	: [i] "+r" (i), [v] "+Q" (v->counter)				\
 	: "r" (v)							\
@@ -176,7 +176,7 @@ static inline void __lse_atomic64_##op(s64 i, atomic64_t *v)		\
 {									\
 	asm volatile(							\
 	__LSE_PREAMBLE							\
-	"	prfm	pstl1strm, %[v]\n"					\
+	"	prfm	pstl1strm, %[v]\n"				\
 	"	" #asm_op "	%[i], %[v]\n"				\
 	: [i] "+r" (i), [v] "+Q" (v->counter)				\
 	: "r" (v));							\
@@ -194,7 +194,7 @@ static inline long __lse_atomic64_fetch_##op##name(s64 i, atomic64_t *v)\
 {									\
 	asm volatile(							\
 	__LSE_PREAMBLE							\
-	"	prfm	pstl1strm, %[v]\n"					\
+	"	prfm	pstl1strm, %[v]\n"				\
 	"	" #asm_op #mb "	%[i], %[i], %[v]"			\
 	: [i] "+r" (i), [v] "+Q" (v->counter)				\
 	: "r" (v)							\
