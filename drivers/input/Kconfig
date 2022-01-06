@@ -205,6 +205,8 @@ source "drivers/input/fingerprint/Kconfig"
 
 source "drivers/input/stmvl53l5/Kconfig"
 
+source "drivers/input/fingerprint/Kconfig"
+
 endif
 
 menu "Hardware I/O ports"
