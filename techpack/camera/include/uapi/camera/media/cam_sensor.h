@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __UAPI_CAM_SENSOR_H__
@@ -108,16 +109,25 @@ struct cam_cmd_i2c_info {
 /**
  * struct cam_ois_opcode - Contains OIS opcode
  *
- * @prog            :    OIS FW prog register address
- * @coeff           :    OIS FW coeff register address
- * @pheripheral     :    OIS pheripheral
- * @memory          :    OIS memory
+ * @prog             :    OIS FW prog register address
+ * @coeff            :    OIS FW coeff register address
+ * @pheripheral      :    OIS pheripheral
+ * @memory           :    OIS memory
+ * @fw_addr_type     :    OIS FW addr type
+ * @is_addr_increase :    OIS FW addr increase
+ * others            :    OIS FW Upgrade related.
  */
 struct cam_ois_opcode {
 	__u32 prog;
 	__u32 coeff;
 	__u32 pheripheral;
 	__u32 memory;
+	__u8 fw_addr_type;
+	__u8 is_addr_increase;
+	__u8 is_addr_indata;
+	__u8 fwversion;
+	__u32 fwchecksumsize;
+	__u32 fwchecksum;
 } __attribute__((packed));
 
 /**
@@ -130,6 +140,7 @@ struct cam_ois_opcode {
  * @is_ois_calib          :    indicates the calibration data is available
  * @ois_name              :    OIS name
  * @opcode                :    opcode
+ * @is_ois_pre_init       :    indicates the pre initialize data is available
  */
 struct cam_cmd_ois_info {
 	__u32                 slave_addr;
@@ -139,6 +150,7 @@ struct cam_cmd_ois_info {
 	__u8                  is_ois_calib;
 	char                  ois_name[MAX_OIS_NAME_SIZE];
 	struct cam_ois_opcode opcode;
+	uint8_t               is_ois_pre_init; //xiaomi add
 } __attribute__((packed));
 
 /**
@@ -451,6 +463,7 @@ struct cam_flash_set_on_off {
 	__u16    reserved;
 	__u32    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 	__u64    time_on_duration_ns;
+	__u8     is_trigger_eof; // xiaomi add
 } __attribute__((packed));
 
 /**
@@ -476,7 +489,6 @@ struct cam_flash_query_curr {
  * @max_current_flash   :  max supported current for flash
  * @max_duration_flash  :  max flash turn on duration
  * @max_current_torch   :  max supported current for torch
- * @flash_type          :  Indicates about the flash type -I2C,GPIO,PMIC
  *
  */
 struct cam_flash_query_cap_info {
@@ -484,7 +496,6 @@ struct cam_flash_query_cap_info {
 	__u32    max_current_flash[CAM_FLASH_MAX_LED_TRIGGERS];
 	__u32    max_duration_flash[CAM_FLASH_MAX_LED_TRIGGERS];
 	__u32    max_current_torch[CAM_FLASH_MAX_LED_TRIGGERS];
-	__u32    flash_type;
 } __attribute__ ((packed));
 
 #endif

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CAM_SENSOR_CMN_HEADER_
@@ -345,12 +346,6 @@ enum msm_sensor_camera_id_t {
 	CAMERA_7,
 	CAMERA_8,
 	CAMERA_9,
-	CAMERA_10,
-	CAMERA_11,
-	CAMERA_12,
-	CAMERA_13,
-	CAMERA_14,
-	CAMERA_15,
 	MAX_CAMERAS,
 };
 
@@ -392,6 +387,7 @@ enum msm_camera_vreg_name_t {
 	CAM_VDIG,
 	CAM_VIO,
 	CAM_VANA,
+        CAM_VANA1,
 	CAM_VAF,
 	CAM_V_CUSTOM1,
 	CAM_V_CUSTOM2,

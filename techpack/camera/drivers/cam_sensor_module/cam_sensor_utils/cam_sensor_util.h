@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CAM_SENSOR_UTIL_H_
@@ -41,9 +42,6 @@ int msm_camera_pinctrl_init
 
 int32_t cam_sensor_util_get_current_qtimer_ns(uint64_t *qtime_ns);
 
-int32_t cam_sensor_util_regulator_powerup(
-	struct cam_hw_soc_info *soc_info);
-
 int32_t cam_sensor_util_write_qtimer_to_io_buffer(
 	struct cam_buf_io_cfg *io_cfg);
 
@@ -66,8 +64,14 @@ int cam_sensor_util_request_gpio_table(
 int cam_sensor_util_init_gpio_pin_tbl(
 	struct cam_hw_soc_info *soc_info,
 	struct msm_camera_gpio_num_info **pgpio_num_info);
+
 int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info);
+
+#if IS_ENABLED(CONFIG_ISPV2_AL6021)
+int cam_sensor_core_power_up_extra(struct cam_sensor_power_ctrl_t *ctrl,
+		struct cam_hw_soc_info *soc_info);
+#endif
 
 int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info);
