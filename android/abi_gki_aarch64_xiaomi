@@ -1,4 +1,4 @@
-[abi_symbol_list]
+[abi_whitelist]
 # required by cs35l41_dlkm.ko
   regmap_async_complete
   regmap_multi_reg_write

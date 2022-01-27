@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
  * Copyright (c) 2013, 2018-2019, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/kthread.h>
 #include <linux/module.h>
@@ -23,8 +24,21 @@
 #include "qrtr.h"
 
 #define QRTR_LOG_PAGE_CNT 4
+
+#ifdef CONFIG_DEBUG_POWER_MI
+#define QRTR_INFO(ctx, x, ...)				\
+	do { \
+		ipc_log_string(ctx, x, ##__VA_ARGS__); \
+		if (qrtr_first_msg) \
+		{ \
+			qrtr_first_msg = 0; \
+			pr_info(x, ##__VA_ARGS__); \
+		} \
+	}while(0)
+#else
 #define QRTR_INFO(ctx, x, ...)				\
 	ipc_log_string(ctx, x, ##__VA_ARGS__)
+#endif
 
 #define QRTR_PROTO_VER_1 1
 #define QRTR_PROTO_VER_2 3

@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2016-2017, Linaro Ltd
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/idr.h>
@@ -142,7 +143,6 @@ struct qcom_glink {
 	struct qcom_glink_pipe *tx_pipe;
 
 	int irq;
-	char irqname[GLINK_NAME_SIZE];
 
 	struct kthread_worker kworker;
 	struct task_struct *task;
@@ -1261,7 +1261,7 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 	int ret = 0;
 
 	if (should_wake) {
-		pr_info("%s: %d triggered %s\n", __func__, irq, glink->irqname);
+		pr_info("%s: %d triggered %s\n", __func__, irq, "glink-native");
 		glink_resume_pkt = true;
 		pm_system_wakeup();
 	}
@@ -2154,13 +2154,13 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	if (ret)
 		dev_err(dev, "failed to register early notif %d\n", ret);
 
-	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
-
 	irq = of_irq_get(dev->of_node, 0);
+
+
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,
 			       IRQF_NO_SUSPEND | IRQF_SHARED,
-			       glink->irqname, glink);
+			       "glink-native", glink);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ\n");
 		goto unregister;
