@@ -29,11 +29,6 @@ ifeq ($(CONFIG_SND_SOC_AUTO), y)
 		export
 		INCS    +=  -include $(AUDIO_ROOT)/config/gvmautoconf.h
 	endif
-	ifdef CONFIG_SND_SOC_GVM_SA8295
-		include $(AUDIO_ROOT)/config/sa8295gvmauto.conf
-		export
-		INCS    +=  -include $(AUDIO_ROOT)/config/sa8295gvmautoconf.h
-	endif
 else
 	ifeq ($(KERNEL_BUILD), 0)
 		ifeq ($(CONFIG_ARCH_SM8150), y)
@@ -264,6 +259,10 @@ ifeq ($(KERNEL_BUILD), 1)
 	obj-y	+= wsa883x/
 	obj-y	+= rouleur/
 endif
+
+obj-y	+= cs35l41/
+
+
 # Module information used by KBuild framework
 obj-$(CONFIG_WCD9XXX_CODEC_CORE) += wcd_core_dlkm.o
 obj-$(CONFIG_WCD9XXX_CODEC_CORE_V2) += wcd_core_dlkm.o

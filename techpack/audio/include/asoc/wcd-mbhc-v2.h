@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __WCD_MBHC_V2_H__
 #define __WCD_MBHC_V2_H__
@@ -437,6 +437,9 @@ struct wcd_mbhc_config {
 	bool enable_anc_mic_detect;
 	u32 enable_usbc_analog;
 	bool moisture_duty_cycle_en;
+	int uart_audio_switch_gpio;
+	struct device_node *uart_audio_switch_gpio_p; /* used by pinctrl API */
+	bool flip_switch;
 };
 
 struct wcd_mbhc_intr {
@@ -607,6 +610,8 @@ struct wcd_mbhc {
 	struct wcd_mbhc_register *wcd_mbhc_regs;
 
 	struct completion btn_press_compl;
+	struct mutex hphl_pa_lock;
+	struct mutex hphr_pa_lock;
 	bool deinit_in_progress;
 
 	/* Holds mbhc detection method - ADC/Legacy */
@@ -634,5 +639,8 @@ int wcd_cancel_btn_work(struct wcd_mbhc *mbhc);
 int wcd_mbhc_get_button_mask(struct wcd_mbhc *mbhc);
 void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			enum snd_jack_types jack_type);
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+extern bool is_early_cons_enabled;
+#endif
 
 #endif /* __WCD_MBHC_V2_H__ */
