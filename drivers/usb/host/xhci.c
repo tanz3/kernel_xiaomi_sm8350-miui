@@ -1131,7 +1131,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 	if (!hcd)
 		return 0;
 
-        if (!hcd->state)
+    if (!hcd->state)
 		return 0;
 
 	/* Wait a bit if either of the roothubs need to settle from the

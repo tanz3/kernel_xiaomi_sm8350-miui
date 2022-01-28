@@ -3430,6 +3430,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	qdss_gsi_string_defs[0].id  = 0;
 	gsi->func_wakeup_pending = false;
 	atomic_set(&gsi->connected, 0);
+
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
 		rndis_deregister(gsi->params);

@@ -151,7 +151,7 @@ static int usb_string_copy(const char *s, char **s_copy)
 	char *str;
 	char *copy = *s_copy;
 	ret = strlen(s);
-	if (ret > USB_MAX_STRING_LEN)
+	if (ret > MAX_USB_STRING_LEN)
 		return -EOVERFLOW;
 
 	if (copy) {
@@ -1665,6 +1665,15 @@ static void configfs_composite_disconnect(struct usb_gadget *gadget)
 		WARN(1, "%s: gadget driver already disconnected\n", __func__);
 		return;
 	}
+
+#ifdef CONFIG_USB_CONFIGFS_F_ACC
+	/*
+	 * accessory HID support can be active while the
+	 * accessory function is not actually enabled,
+	 * so we need to inform it when we are disconnected.
+	 */
+	acc_disconnect();
+#endif
 
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 	/*
