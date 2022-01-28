@@ -73,5 +73,6 @@ uint32_t get_hw_version_minor(void);
 uint32_t get_hw_version_build(void);
 uint32_t get_hw_project_adc(void);
 uint32_t get_hw_build_adc(void);
+uint32_t get_hw_id_value(void);
 
 #endif
