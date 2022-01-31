@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 #ifndef ADSPRPC_SHARED_H
 #define ADSPRPC_SHARED_H
@@ -138,7 +138,7 @@ do {\
 #define K_COPY_TO_USER_WITHOUT_ERR(kernel, dst, src, size) \
 	do {\
 		if (!(kernel))\
-			copy_to_user((void __user *)(dst),\
+			(void)copy_to_user((void __user *)(dst),\
 			(src), (size));\
 		else\
 			memmove((dst), (src), (size));\
@@ -266,6 +266,17 @@ enum fastrpc_invoke2_type {
 	FASTRPC_INVOKE2_ASYNC		   = 1,
 	FASTRPC_INVOKE2_ASYNC_RESPONSE = 2,
 	FASTRPC_INVOKE2_KERNEL_OPTIMIZATIONS,
+};
+
+enum fastrpc_process_exit_states {
+	/* Process Default State */
+	FASTRPC_PROCESS_DEFAULT_STATE				= 0,
+	/* Process exit initiated */
+	FASTRPC_PROCESS_EXIT_START				= 1,
+	/* Process exit issued to DSP */
+	FASTRPC_PROCESS_DSP_EXIT_INIT				= 2,
+	/* Process exit in DSP complete */
+	FASTRPC_PROCESS_DSP_EXIT_COMPLETE			= 3,
 };
 
 struct fastrpc_ioctl_invoke2 {

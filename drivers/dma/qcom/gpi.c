@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -852,6 +852,15 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 	GPII_ERR(gpii, GPI_DBG_COMMON, "Global IRQ handling Exit\n");
 }
 
+void gpi_dump_for_geni(struct dma_chan *chan)
+{
+	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
+	struct gpii *gpii = gpii_chan->gpii;
+
+	gpi_dump_debug_reg(gpii);
+}
+EXPORT_SYMBOL(gpi_dump_for_geni);
+
 static void gpi_disable_interrupts(struct gpii *gpii)
 {
 	struct {
@@ -1228,8 +1237,11 @@ static void gpi_process_ch_ctrl_irq(struct gpii *gpii)
 		 * Stop in process is a transition state and we will wait for
 		 * stop interrupt before notifying.
 		 */
-		if (gpii_chan->ch_state != CH_STATE_STOP_IN_PROC)
+		if (gpii_chan->ch_state != CH_STATE_STOP_IN_PROC) {
+			GPII_ERR(gpii, GPI_DBG_COMMON,
+			"Chan Not in Proper state:%d\n", gpii_chan->ch_state);
 			complete_all(&gpii->cmd_completion);
+		}
 
 		/* notifying clients if in error state */
 		if (gpii_chan->ch_state == CH_STATE_ERROR)
@@ -2913,9 +2925,9 @@ static struct dma_chan *gpi_of_dma_xlate(struct of_phandle_args *args,
 	gpii_chan->priority = args->args[4] & GPI_EV_PRIORITY_BMSK;
 
 	GPI_LOG(gpi_dev,
-		"client req. gpii:%u chid:%u #_tre:%u priority:%u protocol:%u\n",
+		"client req gpii:%u chid:%u #_tre:%u prio:%u proto:%u SE:%d\n",
 		gpii, chid, gpii_chan->req_tres, gpii_chan->priority,
-		gpii_chan->protocol);
+		gpii_chan->protocol, gpii_chan->seid);
 
 	return dma_get_slave_channel(&gpii_chan->vc.chan);
 }
@@ -2980,7 +2992,6 @@ static int gpi_probe(struct platform_device *pdev)
 {
 	struct gpi_dev *gpi_dev;
 	int ret, i;
-	const char *mode = NULL;
 	u32 gpi_ee_offset;
 
 	gpi_dev = devm_kzalloc(&pdev->dev, sizeof(*gpi_dev), GFP_KERNEL);
@@ -3040,9 +3051,6 @@ static int gpi_probe(struct platform_device *pdev)
 		GPI_ERR(gpi_dev, "missing 'qcom,ev-factor' DT node\n");
 		return ret;
 	}
-
-	ret = of_property_read_string(gpi_dev->dev->of_node,
-			"qcom,iommu-dma", &mode);
 
 	ret = dma_set_mask(gpi_dev->dev, DMA_BIT_MASK(64));
 	if (ret) {

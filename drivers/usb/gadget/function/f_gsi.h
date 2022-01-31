@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _F_GSI_H
@@ -21,6 +21,8 @@
 #include <linux/ipc_logging.h>
 #include <linux/timer.h>
 
+#include "configfs.h"
+
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
 #define GSI_DPL_CTRL_NAME "dpl_ctrl"
@@ -28,23 +30,43 @@
 #define GSI_CTRL_NAME_LEN (sizeof(GSI_MBIM_CTRL_NAME)+2)
 #define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
+#define GSI_MAX_MAC_ADDR_LEN 18
 
 #define GSI_NUM_IN_RNDIS_BUFFERS 50
 #define GSI_NUM_IN_RMNET_BUFFERS 50
+#define GSI_NUM_IN_DPL_BUFFERS 30
 #define GSI_NUM_IN_BUFFERS 15
 #define GSI_IN_BUFF_SIZE 2048
 #define GSI_IN_RMNET_BUFF_SIZE 31744
 #define GSI_IN_RNDIS_BUFF_SIZE 16384
+#define GSI_IN_DPL_BUFF_SIZE 16384
 #define GSI_NUM_OUT_BUFFERS 14
 #define GSI_OUT_AGGR_SIZE 24576
 
 #define GSI_IN_RNDIS_AGGR_SIZE 16384
-#define GSI_IN_MBIM_AGGR_SIZE 16384
+#define GSI_IN_MBIM_AGGR_SIZE 31744
 #define GSI_IN_RMNET_AGGR_SIZE 16384
+#define GSI_OUT_MBIM_AGGR_SIZE 16384
 #define GSI_ECM_AGGR_SIZE 2048
 
-#define GSI_IN_LOW_MEM_RNDIS_AGGR_SIZE 9216
-#define GSI_OUT_LOW_MEM_RMNET_BUF_LEN 16384
+#ifdef CONFIG_USB_LOW_MEM_VARIANT
+# undef  GSI_IN_RNDIS_BUFF_SIZE
+# define GSI_IN_RNDIS_BUFF_SIZE GSI_IN_BUFF_SIZE
+# undef  GSI_IN_RNDIS_AGGR_SIZE
+# define GSI_IN_RNDIS_AGGR_SIZE 9216
+# undef  GSI_NUM_IN_RNDIS_BUFFERS
+# define GSI_NUM_IN_RNDIS_BUFFERS GSI_NUM_IN_BUFFERS
+
+# undef  GSI_IN_RMNET_BUFF_SIZE
+# define GSI_IN_RMNET_BUFF_SIZE GSI_IN_BUFF_SIZE
+# undef  GSI_NUM_IN_RMNET_BUFFERS
+# define GSI_NUM_IN_RMNET_BUFFERS GSI_NUM_IN_BUFFERS
+# undef  GSI_OUT_RMNET_BUF_LEN
+# define GSI_OUT_RMNET_BUF_LEN 16384
+
+# undef  GSI_NUM_IN_DPL_BUFFERS
+# define GSI_NUM_IN_DPL_BUFFERS 15
+#endif
 
 #define GSI_OUT_MBIM_BUF_LEN 16384
 #define GSI_OUT_RMNET_BUF_LEN 31744
@@ -66,6 +88,9 @@
 #define GSI_MBIM_DATA_EP_TYPE_HSUSB 0x2
 /* ID for Microsoft OS String */
 #define GSI_MBIM_OS_STRING_ID 0xEE
+
+static char compatible_id[256] = "ALTRCFG";
+static char sub_compatible_id[8];
 
 #define EVT_NONE			0
 #define EVT_UNINITIALIZED		1
@@ -200,6 +225,7 @@ struct gsi_ctrl_port {
 	atomic_t ctrl_online;
 
 	bool is_open;
+	bool is_suspended;
 
 	wait_queue_head_t read_wq;
 
@@ -218,6 +244,10 @@ struct gsi_ctrl_port {
 	unsigned int modem_to_host;
 	unsigned int cpkt_drop_cnt;
 	unsigned int get_encap_cnt;
+
+	struct device *dev;
+	struct work_struct uevent_work;
+	struct workqueue_struct *uevent_wq;
 };
 
 struct gsi_data_port {
@@ -264,6 +294,8 @@ struct f_gsi {
 	u32 vendorID;
 	u8 ethaddr[ETH_ADDR_STR_LEN];
 	const char *manufacturer;
+	char host_addr[GSI_MAX_MAC_ADDR_LEN];
+	char dev_addr[GSI_MAX_MAC_ADDR_LEN];
 	struct rndis_params *params;
 	atomic_t connected;
 	bool data_interface_up;
@@ -272,6 +304,7 @@ struct f_gsi {
 	/* function suspend status */
 	bool func_is_suspended;
 	bool func_wakeup_allowed;
+	bool func_wakeup_pending;
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
@@ -280,6 +313,9 @@ struct f_gsi {
 	struct gsi_ctrl_port c_port;
 	void *ipc_log_ctxt;
 	bool rmnet_dtr_status;
+	bool rmnet_use_tcm_mem;
+
+	bool rwake_inprogress;
 
 	/* To test remote wakeup using debugfs */
 	struct timer_list gsi_rw_timer;
@@ -309,6 +345,11 @@ static inline struct f_gsi *c_port_to_gsi(struct gsi_ctrl_port *d)
 struct gsi_opts {
 	struct usb_function_instance func_inst;
 	struct f_gsi *gsi;
+
+	/* os desc support */
+	struct config_group *interf_group;
+	char ext_compat_id[16];
+	struct usb_os_desc os_desc;
 };
 
 static inline struct gsi_opts *to_gsi_opts(struct config_item *item)
@@ -756,7 +797,8 @@ static struct usb_gadget_strings *rndis_gsi_strings[] = {
 };
 
 /* mbim device descriptors */
-#define MBIM_NTB_DEFAULT_IN_SIZE	(0x4000)
+#define MBIM_NTB_DEFAULT_IN_SIZE	GSI_IN_MBIM_AGGR_SIZE
+#define MBIM_NTB_DEFAULT_OUT_SIZE	GSI_OUT_MBIM_AGGR_SIZE
 
 static struct usb_cdc_ncm_ntb_parameters mbim_gsi_ntb_parameters = {
 	.wLength = cpu_to_le16(sizeof(mbim_gsi_ntb_parameters)),
@@ -766,7 +808,7 @@ static struct usb_cdc_ncm_ntb_parameters mbim_gsi_ntb_parameters = {
 	.wNdpInPayloadRemainder = cpu_to_le16(0),
 	.wNdpInAlignment = cpu_to_le16(4),
 
-	.dwNtbOutMaxSize = cpu_to_le32(0x4000),
+	.dwNtbOutMaxSize = cpu_to_le32(MBIM_NTB_DEFAULT_OUT_SIZE),
 	.wNdpOutDivisor = cpu_to_le16(4),
 	.wNdpOutPayloadRemainder = cpu_to_le16(0),
 	.wNdpOutAlignment = cpu_to_le16(4),
@@ -1055,50 +1097,6 @@ static struct usb_gadget_strings *mbim_gsi_strings[] = {
 	NULL,
 };
 
-/* Microsoft OS Descriptors */
-
-/*
- * We specify our own bMS_VendorCode byte which Windows will use
- * as the bRequest value in subsequent device get requests.
- */
-#define MBIM_VENDOR_CODE	0xA5
-
-/* Microsoft Extended Configuration Descriptor Header Section */
-struct mbim_gsi_ext_config_desc_header {
-	__le32	dwLength;
-	__le16	bcdVersion;
-	__le16	wIndex;
-	__u8	bCount;
-	__u8	reserved[7];
-};
-
-/* Microsoft Extended Configuration Descriptor Function Section */
-struct mbim_gsi_ext_config_desc_function {
-	__u8	bFirstInterfaceNumber;
-	__u8	bInterfaceCount;
-	__u8	compatibleID[8];
-	__u8	subCompatibleID[8];
-	__u8	reserved[6];
-};
-
-/* Microsoft Extended Configuration Descriptor */
-static struct {
-	struct mbim_gsi_ext_config_desc_header	header;
-	struct mbim_gsi_ext_config_desc_function    function;
-} mbim_gsi_ext_config_desc = {
-	.header = {
-		.dwLength = cpu_to_le32(sizeof(mbim_gsi_ext_config_desc)),
-		.bcdVersion = cpu_to_le16(0x0100),
-		.wIndex = cpu_to_le16(4),
-		.bCount = 1,
-	},
-	.function = {
-		.bFirstInterfaceNumber = 0,
-		.bInterfaceCount = 1,
-		.compatibleID = { 'A', 'L', 'T', 'R', 'C', 'F', 'G' },
-		/* .subCompatibleID = DYNAMIC */
-	},
-};
 /* ecm device descriptors */
 #define ECM_QC_LOG2_STATUS_INTERVAL_MSEC	5
 #define ECM_QC_STATUS_BYTECOUNT			16 /* 8 byte header + data */

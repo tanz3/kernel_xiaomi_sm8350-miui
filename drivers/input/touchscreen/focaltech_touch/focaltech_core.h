@@ -139,6 +139,7 @@ struct fts_ts_platform_data {
 	u32 x_min;
 	u32 y_min;
 	u32 max_touch_number;
+	bool power_always_on;
 };
 
 struct ts_event {
@@ -295,6 +296,7 @@ struct fts_ts_data {
 	struct clk *iface_clk;
 	atomic_t trusted_touch_initialized;
 	atomic_t trusted_touch_enabled;
+	atomic_t trusted_touch_underway;
 	atomic_t trusted_touch_event;
 	atomic_t trusted_touch_abort_status;
 	atomic_t delayed_vm_probe_pending;

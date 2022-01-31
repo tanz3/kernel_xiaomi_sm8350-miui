@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/memory.h>
@@ -48,6 +48,8 @@ static u32 offline_granule;
 static bool is_rpm_controller;
 static bool has_pend_offline_req;
 static atomic_long_t totalram_pages_with_offline = ATOMIC_INIT(0);
+static struct workqueue_struct *migrate_wq;
+static unsigned long movable_bitmap;
 
 #define MODULE_CLASS_NAME	"mem-offline"
 #define MIGRATE_TIMEOUT_SEC	(20)
@@ -483,8 +485,9 @@ static void isolate_free_pages(struct movable_zone_fill_control *fc)
 		 * returning once we have SWAP_CLUSTER_MAX pages in the
 		 * free list for migration.
 		 */
-		if (fc->nr_free_pages >= SWAP_CLUSTER_MAX ||
-			has_pend_offline_req)
+		if (!((start_pfn + 1) % pageblock_nr_pages) &&
+			(fc->nr_free_pages >= SWAP_CLUSTER_MAX ||
+			has_pend_offline_req))
 			break;
 	}
 	fc->start_pfn = start_pfn + 1;
@@ -750,6 +753,63 @@ static int mem_event_callback(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+static int update_movable_bitmap(void)
+{
+	struct device_node *node;
+	struct property *prop;
+	int len, num_cells, num_entries;
+	u64 base, size, end, section_size;
+	u64 movable_start, movable_end;
+	int nr_address_cells, nr_size_cells;
+	const __be32 *pos;
+
+	node = of_find_node_by_name(of_root, "memory");
+	if (!node) {
+		pr_err("mem-offine: memory node not found in DT\n");
+		return -EINVAL;
+	}
+
+	nr_address_cells = of_n_addr_cells(of_root);
+	nr_size_cells = of_n_size_cells(of_root);
+
+	prop = of_find_property(node, "reg", &len);
+
+	num_cells = len / sizeof(__be32);
+	num_entries = num_cells / (nr_address_cells + nr_size_cells);
+
+	pos = prop->value;
+
+	section_size = MIN_MEMORY_BLOCK_SIZE;
+	movable_start = memblock_end_of_DRAM();
+	movable_end = bootloader_memory_limit - 1;
+
+	while (num_entries--) {
+		u64 new_base, new_end;
+		u64 new_start_bitmap, bitmap_size;
+
+		base = of_read_number(pos, nr_address_cells);
+		size = of_read_number(pos + nr_address_cells, nr_size_cells);
+		pos += nr_address_cells + nr_size_cells;
+		end = base + size;
+
+		if (end <= movable_start)
+			continue;
+
+		if (base < movable_start)
+			new_base = movable_start;
+		else
+			new_base = base;
+		new_end = end;
+
+		new_start_bitmap = (new_base - movable_start) / section_size;
+		bitmap_size = (new_end - new_base) / section_size;
+		bitmap_set(&movable_bitmap, new_start_bitmap, bitmap_size);
+	}
+
+	pr_debug("mem-offline: movable_bitmap is %lx\n", movable_bitmap);
+	return 0;
+}
+
 static int mem_online_remaining_blocks(void)
 {
 	unsigned long memblock_end_pfn = __phys_to_pfn(memblock_end_of_DRAM());
@@ -758,6 +818,7 @@ static int mem_online_remaining_blocks(void)
 	unsigned int nid;
 	phys_addr_t phys_addr;
 	int fail = 0;
+	int ret;
 
 	block_size = memory_block_size_bytes();
 	sections_per_block = block_size / MIN_MEMORY_BLOCK_SIZE;
@@ -769,8 +830,17 @@ static int mem_online_remaining_blocks(void)
 		pr_info("mem-offline: System booted with no zone movable memory blocks. Cannot perform memory offlining\n");
 		return -EINVAL;
 	}
+
+	ret = update_movable_bitmap();
+	if (ret < 0)
+		return -ENODEV;
+
 	for (memblock = start_section_nr; memblock <= end_section_nr;
 			memblock += sections_per_block) {
+
+		if (!test_bit(memblock - start_section_nr, &movable_bitmap))
+			continue;
+
 		pfn = section_nr_to_pfn(memblock);
 		phys_addr = __pfn_to_phys(pfn);
 
@@ -970,6 +1040,13 @@ static ssize_t show_mem_stats(struct kobject *kobj,
 static struct kobj_attribute stats_attr =
 		__ATTR(stats, 0444, show_mem_stats, NULL);
 
+static ssize_t show_anon_migrate(struct kobject *kobj,
+					struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%lu\n",
+				atomic_read(&target_migrate_pages));
+}
+
 static ssize_t store_anon_migrate(struct kobject *kobj,
 				struct kobj_attribute *attr, const char *buf,
 				size_t size)
@@ -983,7 +1060,7 @@ static ssize_t store_anon_migrate(struct kobject *kobj,
 	atomic_add(val, &target_migrate_pages);
 
 	if (!work_pending(&fill_movable_zone_work))
-		queue_work(system_unbound_wq, &fill_movable_zone_work);
+		queue_work(migrate_wq, &fill_movable_zone_work);
 
 	return size;
 }
@@ -992,7 +1069,7 @@ static struct kobj_attribute offline_granule_attr =
 		__ATTR(offline_granule, 0444, show_mem_offline_granule, NULL);
 
 static struct kobj_attribute anon_migration_size_attr =
-		__ATTR(anon_migrate, 0220, NULL, store_anon_migrate);
+		__ATTR(anon_migrate, 0644, show_anon_migrate, store_anon_migrate);
 
 static struct attribute *mem_root_attrs[] = {
 		&stats_attr.attr,
@@ -1122,6 +1199,14 @@ static int mem_offline_driver_probe(struct platform_device *pdev)
 
 	if (bypass_send_msg)
 		pr_info("mem-offline: bypass mode\n");
+
+	migrate_wq = alloc_workqueue("reverse_migrate_wq",
+					WQ_UNBOUND | WQ_FREEZABLE, 0);
+	if (!migrate_wq) {
+		pr_err("Failed to create the worker for reverse migration\n");
+		ret = -ENOMEM;
+		goto err_sysfs_remove_group;
+	}
 
 	return 0;
 

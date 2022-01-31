@@ -24,6 +24,10 @@
 #include <linux/preempt.h>
 #include <linux/hugetlb.h>
 
+#ifdef CONFIG_TLB_CONF_HANDLER
+#include <linux/qcom_scm.h>
+#endif
+
 #include <asm/acpi.h>
 #include <asm/bug.h>
 #include <asm/cmpxchg.h>
@@ -674,11 +678,13 @@ static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 
 	inf = esr_to_fault_info(esr);
 
-	/*
-	 * Return value ignored as we rely on signal merging.
-	 * Future patches will make this more robust.
-	 */
-	apei_claim_sea(regs);
+	if (user_mode(regs) && apei_claim_sea(regs) == 0) {
+		/*
+		 * APEI claimed this as a firmware-first notification.
+		 * Some processing deferred to task_work before ret_to_user().
+		 */
+		return 0;
+	}
 
 	if (esr & ESR_ELx_FnV)
 		siaddr = NULL;
@@ -688,6 +694,15 @@ static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 
 	return 0;
 }
+
+#ifdef CONFIG_TLB_CONF_HANDLER
+static int do_tlb_conf_fault(unsigned long addr, unsigned int esr, struct pt_regs *regs)
+{
+	if (qcom_scm_tlb_conf_handler(addr))
+		return 1;
+	return 0;
+}
+#endif
 
 static const struct fault_info fault_info[] = {
 	{ do_bad,		SIGKILL, SI_KERNEL,	"ttbr address size fault"	},
@@ -738,7 +753,11 @@ static const struct fault_info fault_info[] = {
 	{ do_bad,		SIGKILL, SI_KERNEL,	"unknown 45"			},
 	{ do_bad,		SIGKILL, SI_KERNEL,	"unknown 46"			},
 	{ do_bad,		SIGKILL, SI_KERNEL,	"unknown 47"			},
+#ifdef CONFIG_TLB_CONF_HANDLER
+	{ do_tlb_conf_fault,	SIGKILL, SI_KERNEL,	"TLB conflict abort"		},
+#else
 	{ do_bad,		SIGKILL, SI_KERNEL,	"TLB conflict abort"		},
+#endif
 	{ do_bad,		SIGKILL, SI_KERNEL,	"Unsupported atomic hardware update fault"	},
 	{ do_bad,		SIGKILL, SI_KERNEL,	"unknown 50"			},
 	{ do_bad,		SIGKILL, SI_KERNEL,	"unknown 51"			},

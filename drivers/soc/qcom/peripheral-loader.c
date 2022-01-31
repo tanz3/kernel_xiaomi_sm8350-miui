@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -868,6 +868,10 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+	if (!strcmp(desc->name, "modem"))
+		place_marker("M - Modem Image Start Loading");
+#endif
 
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
@@ -1193,6 +1197,7 @@ int pil_boot(struct pil_desc *desc)
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
 
+	desc->clear_fw_region = true;
 	/* Reinitialize for new image */
 	pil_release_mmap(desc);
 
@@ -1246,6 +1251,8 @@ int pil_boot(struct pil_desc *desc)
 	if (desc->ops->init_image)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
+		/* S2 mapping not yet done */
+		desc->clear_fw_region = false;
 		pil_err(desc, "Initializing image failed(rc:%d)\n", ret);
 		goto err_boot;
 	}
@@ -1255,6 +1262,8 @@ int pil_boot(struct pil_desc *desc)
 		ret = desc->ops->mem_setup(desc, priv->region_start,
 				priv->region_end - priv->region_start);
 	if (ret) {
+		/* S2 mapping is failed */
+		desc->clear_fw_region = false;
 		pil_err(desc, "Memory setup error(rc:%d)\n", ret);
 		goto err_deinit_image;
 	}
@@ -1291,7 +1300,7 @@ int pil_boot(struct pil_desc *desc)
 	 * Fallback to serial loading of blobs if the
 	 * workqueue creatation failed during module init.
 	 */
-	if (pil_wq) {
+	if (pil_wq && !(desc->sequential_loading)) {
 		ret = pil_load_segs(desc);
 		if (ret)
 			goto err_deinit_image;
@@ -1324,6 +1333,12 @@ int pil_boot(struct pil_desc *desc)
 		goto err_auth_and_reset;
 	}
 	trace_pil_event("reset_done", desc);
+
+#ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
+	if (!strcmp(desc->name, "modem"))
+		place_marker("M - Modem out of reset");
+#endif
+
 	pil_info(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
@@ -1504,7 +1519,7 @@ int pil_desc_init(struct pil_desc *desc)
 	}
 	if (of_property_read_u32(ofnode, "qcom,minidump-id",
 		&desc->minidump_id))
-		pr_err("minidump-id not found for %s\n", desc->name);
+		pr_warn("minidump-id not found for %s\n", desc->name);
 	else {
 		if (IS_ERR_OR_NULL(g_md_toc)) {
 			/* Get Global minidump ToC*/

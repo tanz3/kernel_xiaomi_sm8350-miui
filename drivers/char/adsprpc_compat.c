@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 #include <linux/compat.h>
 #include <linux/fs.h>
@@ -243,18 +243,14 @@ struct compat_fastrpc_ioctl_capability {
 static int compat_get_fastrpc_ioctl_invoke(
 			struct compat_fastrpc_ioctl_invoke_async __user *inv32,
 			struct fastrpc_ioctl_invoke_async __user *inv,
-			unsigned int cmd)
+			unsigned int cmd, unsigned int sc)
 {
-	compat_uint_t u = 0, sc = 0;
+	compat_uint_t u = 0;
 	compat_size_t s;
 	compat_uptr_t p, k;
 	union compat_remote_arg *pra32;
 	union remote_arg *pra;
 	int err = 0, len = 0, j = 0;
-
-	err = get_user(sc, &inv32->inv.sc);
-	if (err)
-		return err;
 
 	len = REMOTE_SCALARS_LENGTH(sc);
 
@@ -299,8 +295,8 @@ static int compat_get_fastrpc_ioctl_invoke(
 		err |= get_user(p, &inv32->job);
 		err |= put_user(p, (compat_uptr_t __user *)&inv->job);
 	}
-	err |= put_user((compat_uptr_t)NULL, (compat_uptr_t __user *)&inv->perf_kernel);
-	err |= put_user((compat_uptr_t)NULL, (compat_uptr_t __user *)&inv->perf_dsp);
+	err |= put_user((compat_uptr_t)0, (compat_uptr_t __user *)&inv->perf_kernel);
+	err |= put_user((compat_uptr_t)0, (compat_uptr_t __user *)&inv->perf_dsp);
 	if ((cmd == COMPAT_FASTRPC_IOCTL_INVOKE_PERF) || (cmd == FASTRPC_INVOKE2_ASYNC)) {
 		err |= get_user(k, &inv32->perf_kernel);
 		err |= get_user(p, &inv32->perf_dsp);
@@ -328,7 +324,7 @@ static int compat_fastrpc_ioctl_invoke(struct file *filp,
 	if (err)
 		return -EFAULT;
 	VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(inv32,
-						inv, cmd));
+						inv, cmd, sc));
 	if (err)
 		return err;
 	return filp->f_op->unlocked_ioctl(filp,
@@ -382,19 +378,19 @@ static int compat_get_fastrpc_ioctl_invoke2(
 		if (size < sizeof(struct compat_fastrpc_ioctl_invoke_async)) {
 			lasync32_old = compat_ptr(pparam);
 			VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(lasync32,
-						asyncinv_user, COMPAT_FASTRPC_IOCTL_INVOKE_CRC));
+					asyncinv_user, COMPAT_FASTRPC_IOCTL_INVOKE_CRC, sc));
 			if (err)
 				goto bail;
 			err |= put_user(NULL, &asyncinv_user->job);
 			err |= get_user(p, &lasync32_old->job);
 			err |= put_user(p, (compat_uptr_t __user *)&asyncinv_user->job);
-			err |= put_user((compat_uptr_t)NULL,
+			err |= put_user((compat_uptr_t)0,
 				(compat_uptr_t __user *)&asyncinv_user->perf_kernel);
-			err |= put_user((compat_uptr_t)NULL,
+			err |= put_user((compat_uptr_t)0,
 				(compat_uptr_t __user *)&asyncinv_user->perf_dsp);
 		} else {
 			VERIFY(err, 0 == compat_get_fastrpc_ioctl_invoke(lasync32,
-							asyncinv_user, req));
+							asyncinv_user, req, sc));
 		}
 		if (err)
 			goto bail;

@@ -446,11 +446,16 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 {
 	int ret = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool reenable_intr = false;
 
 	if (!host->core_reset) {
 		dev_warn(hba->dev, "%s: reset control not set\n", __func__);
 		goto out;
 	}
+
+	reenable_intr = hba->is_irq_enabled;
+	disable_irq(hba->irq);
+	hba->is_irq_enabled = false;
 
 	ret = reset_control_assert(host->core_reset);
 	if (ret) {
@@ -472,6 +477,11 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 				 __func__, ret);
 
 	usleep_range(1000, 1100);
+
+	if (reenable_intr) {
+		enable_irq(hba->irq);
+		hba->is_irq_enabled = true;
+	}
 
 out:
 	return ret;
@@ -983,12 +993,14 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
 
 	switch (status) {
 	case PRE_CHANGE:
-		if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev))) {
+		if (!of_property_read_bool(np, "secondary-storage") &&
+		    strlen(android_boot_dev) &&
+		    strcmp(android_boot_dev, dev_name(dev)))
 			return -ENODEV;
-		}
 
 		if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE,
 					0, true)) {
@@ -1985,6 +1997,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err = 0;
+	struct list_head *head = &hba->clk_list_head;
+	struct ufs_clk_info *clki;
 
 	/*
 	 * In case ufs_qcom_init() is not yet done, simply ignore.
@@ -2009,6 +2023,33 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 					dev_err(hba->dev, "%s: phy power off failed, ret = %d\n",
 							 __func__, err);
 					return err;
+				}
+			}
+
+			if (list_empty(head)) {
+				dev_err(hba->dev, "%s: clk list is empty\n", __func__);
+				return err;
+			}
+			/*
+			 * As per the latest hardware programming guide,
+			 * during Hibern8 enter with power collapse :
+			 * SW should disable HW clock control for UFS ICE
+			 * clock (GCC_UFS_ICE_CORE_CBCR.HW_CTL=0)
+			 * before ufs_ice_core_clk is turned off.
+			 * In device tree, we need to add UFS ICE clocks
+			 * in below fixed order:
+			 * clock-names =
+			 * "core_clk_ice";
+			 * "core_clk_ice_hw_ctl";
+			 * This way no extra check is required in UFS
+			 * clock enable path as clk enable order will be
+			 * already taken care in ufshcd_setup_clocks().
+			 */
+			list_for_each_entry(clki, head, list) {
+				if (!IS_ERR_OR_NULL(clki->clk) &&
+					!strcmp(clki->name, "core_clk_ice_hw_ctl")) {
+					clk_disable_unprepare(clki->clk);
+					clki->enabled = on;
 				}
 			}
 		}

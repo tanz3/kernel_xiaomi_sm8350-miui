@@ -424,10 +424,6 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 		/* EXT_CSD value is in units of 10ms, but we store in ms */
 		card->ext_csd.part_time = 10 * ext_csd[EXT_CSD_PART_SWITCH_TIME];
-		/* Some eMMC set the value too low so set a minimum */
-		if (card->ext_csd.part_time &&
-		    card->ext_csd.part_time < MMC_MIN_PART_SWITCH_TIME)
-			card->ext_csd.part_time = MMC_MIN_PART_SWITCH_TIME;
 
 		/* Sleep / awake timeout in 100ns units */
 		if (sa_shift > 0 && sa_shift <= 0x17)
@@ -616,6 +612,17 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	} else {
 		card->ext_csd.data_sector_size = 512;
 	}
+
+	/*
+	 * GENERIC_CMD6_TIME is to be used "unless a specific timeout is defined
+	 * when accessing a specific field", so use it here if there is no
+	 * PARTITION_SWITCH_TIME.
+	 */
+	if (!card->ext_csd.part_time)
+		card->ext_csd.part_time = card->ext_csd.generic_cmd6_time;
+	/* Some eMMC set the value too low so set a minimum */
+	if (card->ext_csd.part_time < MMC_MIN_PART_SWITCH_TIME)
+		card->ext_csd.part_time = MMC_MIN_PART_SWITCH_TIME;
 
 	/* eMMC v5 or later */
 	if (card->ext_csd.rev >= 7) {
@@ -1540,7 +1547,7 @@ static int mmc_hs200_tuning(struct mmc_card *card)
 }
 
 #if defined(CONFIG_SDC_QTI)
-static int mmc_select_hs_ddr52(struct mmc_host *host)
+static int mmc_select_hs_ddr52(struct mmc_host *host, unsigned long freq)
 {
 	int err;
 
@@ -1553,7 +1560,7 @@ static int mmc_select_hs_ddr52(struct mmc_host *host)
 	}
 
 	err = mmc_select_hs_ddr(host->card);
-	mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
+	mmc_set_clock(host, freq);
 
 	return err;
 }
@@ -1571,7 +1578,7 @@ static int mmc_scale_low(struct mmc_host *host, unsigned long freq)
 
 	if (host->clk_scaling.lower_bus_speed_mode &
 	    MMC_SCALING_LOWER_DDR52_MODE) {
-		err = mmc_select_hs_ddr52(host);
+		err = mmc_select_hs_ddr52(host, freq);
 		if (err)
 			pr_err("%s: %s: failed to switch to DDR52: err: %d\n",
 			       mmc_hostname(host), __func__, err);
@@ -1610,37 +1617,6 @@ static int mmc_scale_high(struct mmc_host *host)
 		mmc_set_clock(host, MMC_HIGH_26_MAX_DTR);
 	}
 
-	if (!host->card->ext_csd.strobe_support) {
-		if (!(host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200)) {
-			pr_err("%s: %s: card does not support HS200\n",
-				mmc_hostname(host), __func__);
-			WARN_ON(1);
-			return -EPERM;
-		}
-
-		err = mmc_select_hs200(host->card);
-		if (err) {
-			pr_err("%s: %s: selecting HS200 failed (%d)\n",
-				mmc_hostname(host), __func__, err);
-			return err;
-		}
-
-		mmc_set_bus_speed(host->card);
-
-		err = mmc_hs200_tuning(host->card);
-		if (err) {
-			pr_err("%s: %s: hs200 tuning failed (%d)\n",
-				mmc_hostname(host), __func__, err);
-			return err;
-		}
-
-		if (!(host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400)) {
-			pr_debug("%s: card does not support HS400\n",
-				mmc_hostname(host));
-			return 0;
-		}
-	}
-
 	mmc_set_initial_state(host);
 	err = mmc_select_timing(host->card);
 	if (err) {
@@ -1649,6 +1625,20 @@ static int mmc_scale_high(struct mmc_host *host)
 		return err;
 	}
 
+	if (mmc_card_hs200(host->card)) {
+		err = mmc_hs200_tuning(host->card);
+		if (err) {
+			pr_err("%s: %s: hs200 tuning failed (%d)\n",
+				mmc_hostname(host), __func__, err);
+			return err;
+		}
+		err = mmc_select_hs400(host->card);
+		if (err) {
+			pr_err("%s: %s: Select hs400 failed (%d)\n",
+				mmc_hostname(host), __func__, err);
+			return err;
+		}
+	}
 	return 0;
 }
 
@@ -2111,17 +2101,6 @@ static int mmc_can_sleep(struct mmc_card *card)
 	return (card && card->ext_csd.rev >= 3);
 }
 
-static int mmc_can_sleepawake(struct mmc_host *host)
-{
-#if defined(CONFIG_SDC_QTI)
-	return host && (host->caps2 & MMC_CAP2_SLEEP_AWAKE) && host->card &&
-		(host->card->ext_csd.rev >= 3);
-#else
-	return host && host->card && (host->card->ext_csd.rev >= 3);
-#endif
-
-}
-
 static int mmc_sleepawake(struct mmc_host *host, bool sleep)
 {
 	struct mmc_command cmd = {};
@@ -2346,7 +2325,7 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (mmc_can_poweroff_notify(host->card) &&
 		((host->caps2 & MMC_CAP2_FULL_PWR_CYCLE) || !is_suspend))
 		err = mmc_poweroff_notify(host->card, notify_type);
-	if (mmc_can_sleepawake(host)) {
+	if (mmc_can_sleep(host->card)) {
 #if defined(CONFIG_SDC_QTI)
 		memcpy(&host->cached_ios, &host->ios, sizeof(host->cached_ios));
 #endif
@@ -2458,7 +2437,7 @@ static int _mmc_resume(struct mmc_host *host)
 	mmc_log_string(host, "Enter\n");
 	mmc_power_up(host, host->card->ocr);
 
-	if (mmc_can_sleepawake(host)) {
+	if (mmc_can_sleep(host->card)) {
 		err = mmc_sleepawake(host, false);
 		if (!err)
 			err = mmc_partial_init(host);

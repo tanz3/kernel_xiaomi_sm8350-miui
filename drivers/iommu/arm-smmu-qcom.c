@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitfield.h>
@@ -20,6 +20,8 @@
 #include <linux/uaccess.h>
 
 #define IMPL_DEF4_MICRO_MMU_CTRL	0
+#define IMPL_DEF4_CLK_ON_STATUS		0x50
+#define IMPL_DEF4_CLK_ON_CLIENT_STATUS	0x54
 #define MICRO_MMU_CTRL_LOCAL_HALT_REQ	BIT(2)
 #define MICRO_MMU_CTRL_IDLE		BIT(3)
 
@@ -193,8 +195,17 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(
 
 static void qsmmuv2_tlb_sync_timeout(struct arm_smmu_device *smmu)
 {
+	u32 clk_on, clk_on_client;
+
 	dev_err_ratelimited(smmu->dev,
 			    "TLB sync timed out -- SMMU may be deadlocked\n");
+	clk_on = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF4,
+				IMPL_DEF4_CLK_ON_STATUS);
+	clk_on_client = arm_smmu_readl(smmu, ARM_SMMU_IMPL_DEF4,
+				       IMPL_DEF4_CLK_ON_CLIENT_STATUS);
+	dev_err_ratelimited(smmu->dev,
+			    "clk on 0x%x, clk on client 0x%x status\n",
+			    clk_on, clk_on_client);
 
 	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }
@@ -1388,7 +1399,6 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 				struct qsmmuv500_tbu_device *tbu,
 				unsigned long *flags)
-	__acquires(&smmu->atos_lock)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
@@ -1413,7 +1423,6 @@ static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
 					struct qsmmuv500_tbu_device *tbu,
 					unsigned long *flags)
-	__releases(&smmu->atos_lock)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
@@ -1448,12 +1457,6 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 
 	if (iova_ext_bits && split_tables)
 		iova_ext_bits = ~iova_ext_bits;
-
-	if (iova_ext_bits) {
-		dev_err_ratelimited(smmu->dev, "ECATS: address out of bounds: %pad\n",
-					&iova);
-		return 0;
-	}
 
 	tbu = qsmmuv500_find_tbu(smmu, sid);
 	if (!tbu)
@@ -1493,6 +1496,15 @@ static phys_addr_t qsmmuv500_iova_to_phys(
 			arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_RESUME,
 					  RESUME_TERMINATE);
 	}
+
+	/* checking out of bound fault after resuming stalled transactions */
+	if (iova_ext_bits) {
+		dev_err_ratelimited(smmu->dev,
+				    "ECATS: address out of bounds: %pad\n",
+				    &iova);
+		goto out_resume;
+	}
+
 
 	/* Only one concurrent atos operation */
 	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
@@ -1587,10 +1599,10 @@ redo:
 	if (!phys && needs_redo++ < 2)
 		goto redo;
 
-	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	qsmmuv500_ecats_unlock(smmu_domain, tbu, &flags);
 
 out_resume:
+	arm_smmu_cb_write(smmu, idx, ARM_SMMU_CB_SCTLR, sctlr_orig);
 	qsmmuv500_tbu_resume(tbu);
 
 out_power_off:

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2016, 2018-2020 The Linux Foundation.
+ * Copyright (c) 2015-2016, 2018-2021 The Linux Foundation.
  * All rights reserved.
  */
 
@@ -19,6 +19,7 @@ enum {
 	CLK_ALPHA_PLL_TYPE_TRION,
 	CLK_ALPHA_PLL_TYPE_LUCID,
 	CLK_ALPHA_PLL_TYPE_ZONDA,
+	CLK_ALPHA_PLL_TYPE_ZONDA_EVO,
 	CLK_ALPHA_PLL_TYPE_LUCID_5LPE,
 	CLK_ALPHA_PLL_TYPE_ZONDA_5LPE,
 	CLK_ALPHA_PLL_TYPE_REGERA,
@@ -93,6 +94,7 @@ struct clk_alpha_pll {
 #define SUPPORTS_DYNAMIC_UPDATE	BIT(3)
 #define SUPPORTS_FSM_LEGACY_MODE BIT(4)
 #define SUPPORTS_SLEW           BIT(4)
+#define BYPASS_LATCH		BIT(6)
 	u8 flags;
 
 	struct clk_regmap clkr;
@@ -172,6 +174,7 @@ extern const struct clk_ops clk_alpha_pll_postdiv_zonda_ops;
 extern const struct clk_ops clk_alpha_pll_zonda_5lpe_ops;
 
 extern const struct clk_ops clk_alpha_pll_lucid_5lpe_ops;
+extern const struct clk_ops clk_alpha_pll_lucid_5lpe_sdx_cpu_ops;
 extern const struct clk_ops clk_alpha_pll_fixed_lucid_5lpe_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_5lpe_ops;
 extern const struct clk_ops clk_alpha_pll_slew_ops;
@@ -184,6 +187,8 @@ extern const struct clk_ops clk_regera_pll_ops;
 extern const struct clk_ops clk_agera_pll_ops;
 
 extern const struct clk_ops clk_alpha_pll_fixed_lucid_evo_ops;
+extern const struct clk_ops clk_alpha_pll_fixed_zonda_evo_ops;
+extern const struct clk_ops clk_alpha_pll_postdiv_zonda_evo_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_evo_ops;
 extern const struct clk_ops clk_alpha_pll_lucid_evo_ops;
 
@@ -208,6 +213,9 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 					const struct alpha_pll_config *config);
 int clk_lucid_evo_pll_configure(struct clk_alpha_pll *pll,
+				struct regmap *regmap,
+				const struct alpha_pll_config *config);
+int clk_zonda_evo_pll_configure(struct clk_alpha_pll *pll,
 				struct regmap *regmap,
 				const struct alpha_pll_config *config);
 #endif

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -262,7 +262,7 @@ static struct qcom_icc_qosbox qxm_crypto_qos = {
 	.offsets = { 0x1d000 },
 	.config = &(struct qos_config) {
 		.prio = 2,
-		.urg_fwd = 1,
+		.urg_fwd = 0,
 	},
 };
 
@@ -298,35 +298,14 @@ static struct qcom_icc_node qxm_ipa = {
 	.links = { SLAVE_A2NOC_SNOC },
 };
 
-static struct qcom_icc_qosbox xm_pcie3_0_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xd000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
-};
-
 static struct qcom_icc_node xm_pcie3_0 = {
 	.name = "xm_pcie3_0",
 	.id = MASTER_PCIE_0,
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &xm_pcie3_0_qos,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_PCIE_GEM_NOC },
-};
-
-static struct qcom_icc_qosbox xm_pcie3_1_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xf000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
 };
 
 static struct qcom_icc_node xm_pcie3_1 = {
@@ -335,7 +314,6 @@ static struct qcom_icc_node xm_pcie3_1 = {
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &xm_pcie3_1_qos,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_PCIE_GEM_NOC },
 };
@@ -496,7 +474,7 @@ static struct qcom_icc_qosbox alm_gpu_tcu_qos = {
 	.num_ports = 1,
 	.offsets = { 0xd7000 },
 	.config = &(struct qos_config) {
-		.prio = 1,
+		.prio = 2,
 		.urg_fwd = 0,
 	},
 };
@@ -640,23 +618,12 @@ static struct qcom_icc_node qnm_mnoc_sf = {
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
 
-static struct qcom_icc_qosbox qnm_pcie_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0xd2000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
-};
-
 static struct qcom_icc_node qnm_pcie = {
 	.name = "qnm_pcie",
 	.id = MASTER_ANOC_PCIE_GEM_NOC,
 	.channels = 1,
 	.buswidth = 16,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qnm_pcie_qos,
 	.num_links = 2,
 	.links = { SLAVE_GEM_NOC_CNOC, SLAVE_LLCC },
 };
@@ -880,6 +847,27 @@ static struct qcom_icc_node qxm_nsp = {
 	.noc_ops = &qcom_qnoc4_ops,
 	.num_links = 1,
 	.links = { SLAVE_CDSP_MEM_NOC },
+};
+
+static struct qcom_icc_qosbox qhm_gic_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0x9000 },
+	.config = &(struct qos_config) {
+		.prio = 2,
+		.urg_fwd = 0,
+	},
+};
+
+static struct qcom_icc_node qhm_gic = {
+	.name = "qhm_gic",
+	.id = MASTER_GIC_1,
+	.channels = 1,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &qhm_gic_qos,
+	.num_links = 1,
+	.links = { SLAVE_SNOC_GEM_NOC_SF },
 };
 
 static struct qcom_icc_node qnm_aggre1_noc = {
@@ -2084,6 +2072,9 @@ static struct qcom_icc_bcm bcm_sh0_disp = {
 };
 
 static struct qcom_icc_bcm *aggre1_noc_bcms[] = {
+	&bcm_sn5,
+	&bcm_sn6,
+	&bcm_sn14,
 };
 
 static struct qcom_icc_node *aggre1_noc_nodes[] = {
@@ -2091,12 +2082,15 @@ static struct qcom_icc_node *aggre1_noc_nodes[] = {
 	[MASTER_QUP_0] = &qhm_qup0,
 	[MASTER_QUP_1] = &qhm_qup1,
 	[MASTER_A1NOC_CFG] = &qnm_a1noc_cfg,
+	[MASTER_PCIE_0] = &xm_pcie3_0,
+	[MASTER_PCIE_1] = &xm_pcie3_1,
 	[MASTER_SDCC_1] = &xm_sdc1,
 	[MASTER_SDCC_2] = &xm_sdc2,
 	[MASTER_SDCC_4] = &xm_sdc4,
 	[MASTER_UFS_MEM] = &xm_ufs_mem,
 	[MASTER_USB3_0] = &xm_usb3_0,
 	[SLAVE_A1NOC_SNOC] = &qns_a1noc_snoc,
+	[SLAVE_ANOC_PCIE_GEM_NOC] = &qns_pcie_mem_noc,
 	[SLAVE_SERVICE_A1NOC] = &srvc_aggre1_noc,
 };
 
@@ -2115,9 +2109,6 @@ static struct qcom_icc_desc yupik_aggre1_noc = {
 
 static struct qcom_icc_bcm *aggre2_noc_bcms[] = {
 	&bcm_ce0,
-	&bcm_sn5,
-	&bcm_sn6,
-	&bcm_sn14,
 };
 
 static struct qcom_icc_node *aggre2_noc_nodes[] = {
@@ -2126,11 +2117,8 @@ static struct qcom_icc_node *aggre2_noc_nodes[] = {
 	[MASTER_CNOC_A2NOC] = &qnm_cnoc_datapath,
 	[MASTER_CRYPTO] = &qxm_crypto,
 	[MASTER_IPA] = &qxm_ipa,
-	[MASTER_PCIE_0] = &xm_pcie3_0,
-	[MASTER_PCIE_1] = &xm_pcie3_1,
 	[MASTER_QDSS_ETR] = &xm_qdss_etr,
 	[SLAVE_A2NOC_SNOC] = &qns_a2noc_snoc,
-	[SLAVE_ANOC_PCIE_GEM_NOC] = &qns_pcie_mem_noc,
 	[SLAVE_SERVICE_A2NOC] = &srvc_aggre2_noc,
 };
 
@@ -2470,6 +2458,7 @@ static struct qcom_icc_bcm *system_noc_bcms[] = {
 };
 
 static struct qcom_icc_node *system_noc_nodes[] = {
+	[MASTER_GIC_1] = &qhm_gic,
 	[MASTER_A1NOC_SNOC] = &qnm_aggre1_noc,
 	[MASTER_A2NOC_SNOC] = &qnm_aggre2_noc,
 	[MASTER_SNOC_CFG] = &qnm_snoc_cfg,
@@ -2582,14 +2571,13 @@ static int qnoc_probe(struct platform_device *pdev)
 	if (qp->num_clks < 0)
 		return qp->num_clks;
 
+	ret = clk_bulk_prepare_enable(qp->num_clks, qp->clks);
+
 	for (i = 0; i < num_nodes; i++) {
 		size_t j;
 
 		if (!qnodes[i])
 			continue;
-
-		if (qnodes[i]->qosbox)
-			qnodes[i]->qosbox = NULL;
 
 		qnodes[i]->regmap = dev_get_regmap(qp->dev, NULL);
 
@@ -2597,6 +2585,11 @@ static int qnoc_probe(struct platform_device *pdev)
 		if (IS_ERR(node)) {
 			ret = PTR_ERR(node);
 			goto err;
+		}
+
+		if (qnodes[i]->qosbox) {
+			qnodes[i]->noc_ops->set_qos(qnodes[i]);
+			qnodes[i]->qosbox->initialized = true;
 		}
 
 		node->name = qnodes[i]->name;
@@ -2613,6 +2606,8 @@ static int qnoc_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 	data->num_nodes = num_nodes;
+
+	clk_bulk_disable_unprepare(qp->num_clks, qp->clks);
 
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1798,13 +1798,17 @@ static const struct msm_pingroup yupik_groups[] = {
 	[174] = PINGROUP(174, qdss_gpio15, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0xAF008, 10),
 	[175] = UFS_RESET(ufs_reset, 0x1be000),
-	[176] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1b3000, 15, 0),
+	[176] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1b3004, 0, 0),
 	[177] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1b3000, 13, 6),
 	[178] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1b3000, 11, 3),
 	[179] = SDC_QDSD_PINGROUP(sdc1_data, 0x1b3000, 9, 0),
 	[180] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1b4000, 14, 6),
 	[181] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1b4000, 11, 3),
 	[182] = SDC_QDSD_PINGROUP(sdc2_data, 0x1b4000, 9, 0),
+};
+
+static const int yupik_reserved_gpios[] = {
+	32, 33, 48, 49, 50, 51, -1
 };
 static struct pinctrl_qup yupik_qup_regs[] = {
 	QUP_I3C(0, QUP_I3C_0_MODE_OFFSET),
@@ -1842,6 +1846,7 @@ static const struct msm_pinctrl_soc_data yupik_pinctrl = {
 	.nfunctions = ARRAY_SIZE(yupik_functions),
 	.groups = yupik_groups,
 	.ngroups = ARRAY_SIZE(yupik_groups),
+	.reserved_gpios = yupik_reserved_gpios,
 	.ngpios = 176,
 	.qup_regs = yupik_qup_regs,
 	.nqup_regs = ARRAY_SIZE(yupik_qup_regs),
@@ -1852,8 +1857,7 @@ static const struct msm_pinctrl_soc_data yupik_pinctrl = {
 /* By default, all the gpios that are mpm wake capable are enabled.
  * The following list disables the gpios explicitly
  */
-static const unsigned int config_mpm_wake_disable_gpios[] = {
-};
+static const unsigned int config_mpm_wake_disable_gpios[] = { 127 };
 
 static void yupik_pinctrl_config_mpm_wake_disable_gpios(void)
 {

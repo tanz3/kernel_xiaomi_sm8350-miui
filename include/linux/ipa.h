@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _IPA_H_
@@ -35,6 +35,12 @@
 #define IPA_SOCKsv5_ADD_V6_V4_COM_PM	1
 #define IPA_SOCKsv5_ADD_V4_V6_COM_PM	2
 #define IPA_SOCKsv5_ADD_V6_V6_COM_PM	3
+
+/* Notifiers for rmnet driver */
+#define BUFF_ABOVE_HIGH_THRESHOLD_FOR_DEFAULT_PIPE        1
+#define BUFF_ABOVE_HIGH_THRESHOLD_FOR_COAL_PIPE           2
+#define BUFF_BELOW_LOW_THRESHOLD_FOR_DEFAULT_PIPE         3
+#define BUFF_BELOW_LOW_THRESHOLD_FOR_COAL_PIPE            4
 
 /**
  * enum ipa_transport_type
@@ -485,6 +491,21 @@ struct ipa_ep_cfg_seq {
 };
 
 /**
+ * struct ipa_ep_cfg_ulso - ULSO configurations
+ * @ipid_min_max_idx: A value in the range [0, 2]. Determines the registers
+ *		pair from which to read the minimum and maximum of IPv4 packets ID. It
+ *		is set to 0 as this range is platform specific and there is no need for
+ *		more than one pair values for this range. The minimum and maximum values
+ *		are taken from the device tree in pre_init and are stored in dedicated
+ *		registers.
+ * @is_ulso_pipe: Indicates whether the pipe is in ulso operation mode.
+ */
+struct ipa_ep_cfg_ulso {
+	int ipid_min_max_idx;
+	bool is_ulso_pipe;
+};
+
+/**
  * struct ipa_ep_cfg - configuration of IPA end-point
  * @nat:		NAT parameters
  * @conn_track:		IPv6CT parameters
@@ -498,6 +519,7 @@ struct ipa_ep_cfg_seq {
  * @metadata_mask:	Hdr metadata mask
  * @meta:		Meta Data
  * @seq:		HPS/DPS sequencers configuration
+ * @ulso:		ULSO configuration
  */
 struct ipa_ep_cfg {
 	struct ipa_ep_cfg_nat nat;
@@ -512,6 +534,7 @@ struct ipa_ep_cfg {
 	struct ipa_ep_cfg_metadata_mask metadata_mask;
 	struct ipa_ep_cfg_metadata meta;
 	struct ipa_ep_cfg_seq seq;
+	struct ipa_ep_cfg_ulso ulso;
 };
 
 /**
@@ -655,6 +678,11 @@ struct ipa_ext_intf {
  * @keep_ipa_awake: when true, IPA will not be clock gated
  * @napi_enabled: when true, IPA call client callback to start polling
  * @bypass_agg: when true, IPA bypasses the aggregation
+ * @int_modt: GSI event ring interrupt moderation time
+ *		cycles base interrupt moderation (32KHz clock)
+ * @int_modc: GSI event ring interrupt moderation packet counter
+ * @buff_size: Actual buff size of rx_pkt
+ * @ext_ioctl_v2: Flag to determine whether ioctl_v2 received
  */
 struct ipa_sys_connect_params {
 	struct ipa_ep_cfg ipa_ep_cfg;
@@ -667,6 +695,10 @@ struct ipa_sys_connect_params {
 	struct napi_struct *napi_obj;
 	bool recycle_enabled;
 	bool bypass_agg;
+	u32 int_modt;
+	u32 int_modc;
+	u32 buff_size;
+	bool ext_ioctl_v2;
 };
 
 /**
@@ -1242,6 +1274,9 @@ enum ipa_smmu_client_type {
 	IPA_SMMU_WLAN_CLIENT,
 	IPA_SMMU_AP_CLIENT,
 	IPA_SMMU_WIGIG_CLIENT,
+	IPA_SMMU_WLAN1_CLIENT,
+	IPA_SMMU_ETH_CLIENT,
+	IPA_SMMU_ETH1_CLIENT,
 	IPA_SMMU_CLIENT_MAX
 };
 
@@ -1400,6 +1435,7 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl);
 int ipa_register_intf(const char *name,
 	const struct ipa_tx_intf *tx,
 	const struct ipa_rx_intf *rx);
+int ipa_deregister_intf(const char *name);
 
 /*
  * Aggregation
@@ -1535,6 +1571,36 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
  */
 int ipa_rmnet_ctl_xmit(struct sk_buff *skb);
 
+/*
+ * ipa_rmnet_ll_xmit - Low lat data Tx
+ *
+ * @skb - tx low lat data packet
+ *
+ * Note: This need to be called after client receive rmnet_ll_
+ * ready_cb and want to send TX ll data message.
+ *
+ * This funciton will return 0 on success, -EAGAIN if pipe if full.
+ */
+int ipa_rmnet_ll_xmit(struct sk_buff *skb);
+
+/*
+ * ipa_register_notifier - Register for IPA atomic notifier
+ *
+ * @fn_ptr - Function pointer to get the notification
+ *
+ * This funciton will return 0 on success, -EAGAIN if reg fails.
+ */
+int ipa_register_notifier(void *fn_ptr);
+
+/*
+ * ipa_unregister_notifier - Unregister for IPA atomic notifier
+ *
+ * @fn_ptr - Function pointer to get the notification
+ *
+ * This funciton will return 0 on success, -EAGAIN if reg fails.
+ */
+int ipa_unregister_notifier(void *fn_ptr);
+
 void ipa_free_skb(struct ipa_rx_data *data);
 
 /*
@@ -1574,7 +1640,11 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl);
 int ipa_disable_wdi_pipe(u32 clnt_hdl);
 int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
-
+int ipa_reg_uc_rdyCB(struct ipa_wdi_uc_ready_params *param);
+int ipa_dereg_uc_rdyCB(void);
+int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs);
+int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls);
+int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup);
 /**
  * ipa_get_wdi_stats() - Query WDI statistics from uc
  * @stats:	[inout] stats blob from client populated by driver
@@ -1711,6 +1781,15 @@ typedef void (*ipa_rmnet_ctl_stop_cb)(void *user_data);
 
 typedef void (*ipa_rmnet_ctl_rx_notify_cb)(void *user_data, void *rx_data);
 
+int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+	u32 *default_aggr_time_limit);
+
+typedef void (*ipa_rmnet_ll_ready_cb)(void *user_data);
+
+typedef void (*ipa_rmnet_ll_stop_cb)(void *user_data);
+
+typedef void (*ipa_rmnet_ll_rx_notify_cb)(void *user_data, void *rx_data);
+
 /**
  * ipa_register_ipa_ready_cb() - register a callback to be invoked
  * when IPA core driver initialization is complete.
@@ -1771,6 +1850,45 @@ int ipa_register_rmnet_ctl_cb(
  * -ENXIO is feature is not enabled.
  */
 int ipa_unregister_rmnet_ctl_cb(void);
+
+/**
+ * ipa_register_rmnet_ll_cb() - register callbacks to be invoked
+ * to rmnet_ll for low latency data pipes setup/teardown/rx_notify.
+ *
+ * @ipa_rmnet_ll_ready_cb:  CB to be called when pipes setup.
+ * @user_data1: user_data for ipa_rmnet_ctl_ready_cb.
+ * @ipa_rmnet_ll_stop_cb: CB to be called when pipes teardown.
+ * @user_data2: user_data for ipa_rmnet_ctl_stop_cb.
+ * @ipa_rmnet_ll_rx_notify_cb: CB to be called when receive rx pkts.
+ * @user_data3: user_data for ipa_rmnet_ctl_rx_notify_cb.
+ * @rx_data: RX data buffer.
+ *
+ * Note: This function is expected to be utilized for rmnet_ll
+ * module.
+ *
+ * The function will return 0 on success, -EAGAIN if IPA not ready,
+ * -ENXIO is feature is not enabled, -EEXIST if already called.
+ */
+int ipa_register_rmnet_ll_cb(
+	void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ll_rx_notify_cb)(void *user_data3, void *rx_data),
+	void *user_data3);
+
+/**
+ * ipa_unregister_rmnet_ll_cb() - unregister callbacks to be
+ * invoked to rmnet_ll for low lat data pipes
+ * setup/teardown/rx_notify.
+ *
+ * Note: This function is expected to be utilized for rmnet_ll
+ * module.
+ *
+ * The function will return 0 on success, -EAGAIN if IPA not ready,
+ * -ENXIO is feature is not enabled.
+ */
+int ipa_unregister_rmnet_ll_cb(void);
 
 int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
 	struct ipa_smmu_out_params *out);
@@ -1902,6 +2020,30 @@ static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
  * QMAP Flow control TX
  */
 static inline int ipa_rmnet_ctl_xmit(struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+/*
+ * Low Latency data Tx
+ */
+static inline int ipa_rmnet_ll_xmit(struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+/*
+ * Rmnet Notifier register
+ */
+static inline int ipa_register_notifier(struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+/*
+ * Rmnet Notifier unregister
+ */
+static inline int ipa_unregister_notifier(struct sk_buff *skb)
 {
 	return -EPERM;
 }
@@ -2093,6 +2235,28 @@ static inline int ipa_unregister_rmnet_ctl_cb(void)
 
 static inline int ipa_uc_reg_rdyCB(
 	struct ipa_wdi_uc_ready_params *inout)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
+	u32 *default_aggr_time_limit)
+{
+	return -EPERM;
+}
+
+static inline int ipa_register_rmnet_ll_cb(
+	void (*ipa_rmnet_ll_ready_cb)(void *user_data1),
+	void *user_data1,
+	void (*ipa_rmnet_ll_stop_cb)(void *user_data2),
+	void *user_data2,
+	void (*ipa_rmnet_ll_rx_notify_cb)(void *user_data3, void *rx_data),
+	void *user_data3)
+{
+	return -EPERM;
+}
+
+static inline int ipa_unregister_rmnet_ll_cb(void)
 {
 	return -EPERM;
 }
@@ -2313,26 +2477,6 @@ static inline struct iommu_domain *ipa_get_smmu_domain(void)
 
 static inline int ipa_disable_apps_wan_cons_deaggr(
 	uint32_t agg_size, uint32_t agg_count)
-{
-	return -EPERM;
-}
-
-static inline int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
-{
-	return -EPERM;
-}
-
-static inline int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
-{
-	return -EPERM;
-}
-
-static inline int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
-{
-	return -EPERM;
-}
-
-static inline int ipa_deregister_intf(const char *name)
 {
 	return -EPERM;
 }

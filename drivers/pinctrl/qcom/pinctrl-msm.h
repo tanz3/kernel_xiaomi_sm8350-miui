@@ -125,6 +125,16 @@ struct pinctrl_qup {
 	u32 offset;
 };
 
+/*
+ * struct msm_spare_tlmm - TLMM spare registers config
+ * @spare_reg:	spare register number
+ * @offset:	Offset of spare register
+ */
+struct msm_spare_tlmm {
+	int spare_reg;
+	u32 offset;
+};
+
 /**
  * struct msm_gpio_wakeirq_map - Map of GPIOs and their wakeup pins
  * @gpio:          The GPIOs that are wakeup capable
@@ -147,6 +157,8 @@ struct msm_gpio_wakeirq_map {
  * @pull_no_keeper: The SoC does not support keeper bias.
  * @wakeirq_map:    The map of wakeup capable GPIOs and the pin at PDC/MPM
  * @nwakeirq_map:   The number of entries in @hierarchy_map
+ * @no_wake_gpios:  The list of non-wakeup capable GPIOs
+ * @n_no_wake_gpios:The number of entries in non-wakeup capable gpios
  * @dir_conn:       An array describing all the pins directly connected to GIC.
  */
 struct msm_pinctrl_soc_data {
@@ -163,8 +175,12 @@ struct msm_pinctrl_soc_data {
 	const int *reserved_gpios;
 	const struct msm_gpio_wakeirq_map *wakeirq_map;
 	unsigned int nwakeirq_map;
+	unsigned int *no_wake_gpios;
+	unsigned int n_no_wake_gpios;
 	struct pinctrl_qup *qup_regs;
 	unsigned int nqup_regs;
+	const struct msm_spare_tlmm *spare_regs;
+	unsigned int nspare_regs;
 	struct msm_dir_conn *dir_conn;
 };
 

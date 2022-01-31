@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _LINUX_MSM_GENI_SE
@@ -51,6 +51,7 @@ enum se_protocol_types {
  * @geni_gpi_sleep:	Handle to the sleep pinctrl state.
  * @num_clk_levels:	Number of valid clock levels in clk_perf_tbl.
  * @clk_perf_tbl:	Table of clock frequency input to Serial Engine clock.
+ * @skip_bw_vote:	Used for PMIC over i2c use case to skip the BW vote.
  */
 struct se_geni_rsc {
 	struct device *ctrl_dev;
@@ -67,16 +68,19 @@ struct se_geni_rsc {
 	unsigned long ib;
 	unsigned long ib_noc;
 	struct pinctrl *geni_pinctrl;
+	struct pinctrl_state *geni_gpio_shutdown;
 	struct pinctrl_state *geni_gpio_active;
 	struct pinctrl_state *geni_gpio_sleep;
 	int	clk_freq_out;
 	unsigned int num_clk_levels;
 	unsigned long *clk_perf_tbl;
+	bool skip_bw_vote;
 };
 
 #define PINCTRL_DEFAULT	"default"
 #define PINCTRL_ACTIVE	"active"
 #define PINCTRL_SLEEP	"sleep"
+#define PINCTRL_SHUTDOWN	"shutdown"
 
 #define KHz(freq) (1000 * (freq))
 

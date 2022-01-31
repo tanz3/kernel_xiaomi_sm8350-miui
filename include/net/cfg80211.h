@@ -43,6 +43,9 @@
 /* Indicate backport support for supported AKM advertisement per interface*/
 #define CFG80211_IFTYPE_AKM_SUITES_SUPPORT 1
 
+/* Indicate backport support for configuring PMKSA timer params*/
+#define CFG80211_CONFIG_PMKSA_TIMER_PARAMS_SUPPORT 1
+
 /**
  * DOC: Device registration
  *
@@ -5419,6 +5422,9 @@ int ieee80211_data_to_8023_exthdr(struct sk_buff *skb, struct ethhdr *ehdr,
 				  const u8 *addr, enum nl80211_iftype iftype,
 				  u8 data_offset);
 
+int ieee80211_data_to_8023_exthdr_bool(struct sk_buff *skb, struct ethhdr *ehdr,
+				       const u8 *addr, enum nl80211_iftype iftype,
+				       u8 data_offset, bool is_amsdu);
 /**
  * ieee80211_data_to_8023 - convert an 802.11 data frame to 802.3
  * @skb: the 802.11 data frame
