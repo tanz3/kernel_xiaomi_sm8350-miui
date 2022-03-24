@@ -152,6 +152,8 @@ static void s2idle_loop(void)
 		}
 
 		clear_wakeup_reasons();
+		pm_wakeup_clear(false);
+
 		s2idle_enter();
 	}
 
