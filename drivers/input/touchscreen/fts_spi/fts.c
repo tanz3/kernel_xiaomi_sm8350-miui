@@ -4012,13 +4012,6 @@ static void fts_enter_pointer_event_handler(struct fts_ts_info *info,
 	dev_dbg(info->dev,
 		"%s  %s :  Event 0x%02x - ID[%d], (x, y, major, minor, angle) = (%3d, %3d, %3d, %3d, %3d) type = %d, overlap:%d\n",
 		tag, __func__, *event, touchId, x, y, major, minor, angle, touchType, info->fod_overlap);
-	if (eventid == 0x13) {
-
-		logError(1,
-			"%s  %s :  Event 0x%02x - Press ID[%d] type = %d\n", tag,
-				__func__, event[0], touchId, touchType);
-		last_touch_events_collect(touchId, 1);
-	}
 
 #ifndef FTS_FOD_AREA_REPORT
 no_report:
@@ -4136,16 +4129,6 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 	}
 	info->last_x[touchId] = info->last_y[touchId] = 0;
 	input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, -1);
-	if (fod_up)
-		logError(1,
-			"%s  %s :  Event FOD - release ID[%d] type = %d\n", tag,
-			__func__, touchId, touchType);
-	else {
-		logError(1,
-			"%s  %s :  Event 0x%02x - release ID[%d] type = %d\n", tag,
-			__func__, event[0], touchId, touchType);
-	}
-	last_touch_events_collect(touchId, 0);
 	info->fod_down = false;
 
 	input_sync(info->input_dev);
@@ -4502,7 +4485,6 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 #ifdef FTS_FOD_AREA_REPORT
 		if (event[2] == GEST_ID_LONG_PRESS) {
 			if (!fts_fingerprint_is_enable()) {
-				logError(1, "%s %s fod is not enabled,don't need to report fod event\n", tag, __func__);
 				goto gesture_done;
 			}
 			if (!info->fod_down) {
