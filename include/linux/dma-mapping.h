@@ -65,13 +65,6 @@
 #define DMA_ATTR_NO_WARN	(1UL << 8)
 
 /*
- * DMA_ATTR_PRIVILEGED: used to indicate that the buffer is fully
- * accessible at an elevated privilege level (and ideally inaccessible or
- * at least read-only at lesser-privileged levels).
- */
-#define DMA_ATTR_PRIVILEGED		(1UL << 9)
-
-/*
  * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
  */
 #define DMA_ATTR_SKIP_ZEROING		(1UL << 10)
