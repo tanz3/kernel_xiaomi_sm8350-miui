@@ -504,7 +504,7 @@ out:
  *
  * Its a little more complex as it tries to keep the fast path to a single
  * atomic op -- the trylock. If we fail the trylock, we fall back to getting a
- * reference like with page_get_anon_vma() and then block on the mutex
+ * reeference like with page_get_anon_vma() and then block on the mutex
  * on !rwc->try_lock case.
  */
 struct anon_vma *page_lock_anon_vma_read(struct page *page,
@@ -1963,9 +1963,18 @@ static void rmap_walk_file(struct page *page, struct rmap_walk_control *rwc,
 
 	pgoff_start = page_to_pgoff(page);
 	pgoff_end = pgoff_start + hpage_nr_pages(page) - 1;
-	if (!locked)
-		i_mmap_lock_read(mapping);
+	if (!locked) {
+		if (i_mmap_trylock_read(mapping))
+			goto lookup;
 
+		if (rwc->try_lock) {
+			rwc->contended = true;
+			return;
+		}
+
+		i_mmap_lock_read(mapping);
+	}
+lookup:
 	if (rwc->target_vma) {
 		address = vma_address(page, rwc->target_vma);
 		rwc->rmap_one(page, rwc->target_vma, address, rwc->arg);
