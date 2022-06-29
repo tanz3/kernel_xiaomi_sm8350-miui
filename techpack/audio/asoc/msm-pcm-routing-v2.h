@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 #ifndef _MSM_PCM_ROUTING_H
 #define _MSM_PCM_ROUTING_H
@@ -663,6 +664,7 @@ enum {
 	EXT_EC_REF_SLIM_1_TX,
 	EXT_EC_REF_PRI_TDM_TX,
 	EXT_EC_REF_SEC_TDM_TX,
+	EXT_EC_REF_TERT_TDM_TX,
 	EXT_EC_REF_SENARY_MI2S_TX,
 };
 
@@ -743,6 +745,7 @@ struct msm_pcm_stream_app_type_cfg {
 	int sample_rate;
 	uint32_t copp_token;
 	int bit_width;
+	int channel;
 };
 
 /* dai_id: front-end ID,
