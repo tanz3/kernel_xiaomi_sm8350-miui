@@ -400,4 +400,88 @@ config ARCH_SA2150P
 	  If you do not wish to build a kernel that runs on this chipset,
 	  say 'N' here.
 
+menu "Xiaomi Family"
+config MACH_XIAOMI
+	bool "Xiaomi Family"
+	help
+	  This enables support for XiaoMi Family devices.
+
+if MACH_XIAOMI
+config MACH_XIAOMI_SM8350
+	bool "Xiaomi SM8350 platform devices"
+	select ARCH_QCOM
+	select ARCH_LAHAINA
+
+config MACH_XIAOMI_CETUS
+	bool "Cetus platform"
+	select MACH_XIAOMI_SM8350
+	help
+	  This enables support for Xiaomi MIX Fold.
+
+config MACH_XIAOMI_HAYDN
+	bool "Haydn and HaydnIN platform"
+	select MACH_XIAOMI_SM8350
+	help
+	  This enables support for Xiaomi Redmi K40 Pro / POCO F3 Pro / MI 11x Pro.
+
+config MACH_XIAOMI_MARS
+	bool "Mars platform"
+	select MACH_XIAOMI_SM8350
+	help
+	  This enables support for Xiaomi MI 11 Pro.
+
+config MACH_XIAOMI_ODIN
+	bool "Odin platform"
+	select MACH_XIAOMI_SM8350
+	help
+	  This enables support for Xiaomi MIX 4.
+
+config MACH_XIAOMI_STAR
+	bool "Star platform"
+	select MACH_XIAOMI_SM8350
+	help
+	  This enables support for Xiaomi MI 11 Ultra.
+
+config MACH_XIAOMI_VENUS
+	bool "Venus platform"
+	select MACH_XIAOMI_SM8350
+	help
+	  This enables support for Xiaomi MI 11.
+
+config MACH_XIAOMI_SM7350
+	bool "Xiaomi SM7350 platform devices"
+	select ARCH_QCOM
+	select ARCH_SM7350
+
+config MACH_XIAOMI_RENOIR
+	bool "Renoir platform"
+	select MACH_XIAOMI_SM7350
+	help
+	  This enables support for Xiaomi MI 11 Lite 5G.
+
+config MACH_XIAOMI_SM7325
+	bool "Xiaomi SM7325 platform devices"
+	select ARCH_QCOM
+	select ARCH_SM7325
+
+config MACH_XIAOMI_LISA
+	bool "Lisa platform"
+	select MACH_XIAOMI_SM7325
+	help
+	  This enables support for Xiaomi 11 Lite NE.
+
+config MACH_XIAOMI_MONA
+	bool "Mona platform"
+	select MACH_XIAOMI_SM7325
+	help
+	  This enables support for Xiaomi Civi 1.
+
+config MACH_XIAOMI_ZIJIN
+	bool "Zijin platform"
+	select MACH_XIAOMI_SM7325
+	help
+	  This enables support for Xiaomi Civi 1s.
+
+endif
+endmenu
 endmenu
