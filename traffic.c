@@ -141,10 +141,11 @@ static enum sigma_cmd_result cmd_traffic_send_ping(struct sigma_dut *dut,
 	else
 		intf_arg[0] = '\0';
 	fprintf(f, "#!" SHELL "\n"
-		"ping%s -b -c %d%s -s %d%s -q%s %s > %s"
+		"ping%s%s -c %d%s -s %d%s -q%s %s > %s"
 		"/sigma_dut-ping.%d &\n"
 		"echo $! > %s/sigma_dut-ping-pid.%d\n",
-		type == 2 ? "6" : "", pkts, int_arg, size, extra,
+		type == 2 ? "6" : "", type == 2 ? "" : " -b",
+		pkts, int_arg, size, extra,
 		intf_arg, dst, dut->sigma_tmpdir, id, dut->sigma_tmpdir, id);
 
 	fclose(f);
@@ -259,7 +260,7 @@ static enum sigma_cmd_result cmd_traffic_stop_ping(struct sigma_dut *dut,
 }
 
 
-static int get_ip_addr(const char *ifname, int ipv6, char *buf, size_t len)
+int get_ip_addr(const char *ifname, int ipv6, char *buf, size_t len)
 {
 	struct ifaddrs *ifa, *ifa_tmp;
 	bool non_ll_addr_found = false;

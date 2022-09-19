@@ -401,6 +401,7 @@ enum dpp_mdns_role {
 	DPP_MDNS_NOT_RUNNING,
 	DPP_MDNS_RELAY,
 	DPP_MDNS_CONTROLLER,
+	DPP_MDNS_BOOTSTRAPPING,
 };
 
 struct sigma_dut {
@@ -1325,5 +1326,6 @@ void miracast_register_cmds(void);
 int set_ipv6_addr(struct sigma_dut *dut, const char *ip, const char *mask,
 		  const char *ifname);
 void kill_pid(struct sigma_dut *dut, const char *pid_file);
+int get_ip_addr(const char *ifname, int ipv6, char *buf, size_t len);
 
 #endif /* SIGMA_DUT_H */
