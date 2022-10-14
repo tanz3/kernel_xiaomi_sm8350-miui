@@ -29,7 +29,6 @@
 #include "mi_disp_print.h"
 #include "mi_dsi_display.h"
 #include "mi_disp_nvt_alpha_data.h"
-#include "mi_dsi_panel_count.h"
 
 extern void mi_sde_connector_fod_ui_ready(struct dsi_display *display, int type, int value);
 
@@ -51,11 +50,10 @@ static int mi_dsi_update_hbm_cmd_87reg(struct dsi_panel *panel,
 			enum dsi_cmd_set_type type, int bl_lvl);
 static int mi_dsi_update_lhbm_cmd_87reg(struct dsi_panel *panel,
 			enum dsi_cmd_set_type type, int bl_lvl);
-
-typedef int (*mi_display_pm_suspend_callback)(void);
-extern void mi_display_pm_suspend_callback_set(mi_display_pm_suspend_callback);
-extern int mi_display_pm_suspend(void);
-
+static int mi_dsi_update_lhbm_110nit_D0reg(struct dsi_panel *panel,
+			enum dsi_cmd_set_type type);
+static int mi_dsi_update_lhbm_dc_gain(struct dsi_panel *panel,
+			enum dsi_cmd_set_type type);
 int mi_dsi_panel_init(struct dsi_panel *panel)
 {
 	struct mi_dsi_panel_cfg *mi_cfg = NULL;
@@ -64,12 +62,9 @@ int mi_dsi_panel_init(struct dsi_panel *panel)
 		DISP_ERROR("invalid params\n");
 		return -EINVAL;
 	}
-	/* Solve the problem of forced power-off flash highlighting for k9e */
-	if(panel->mi_cfg.panel_id == 0x4B394500420200)
-		mi_display_pm_suspend_callback_set(mi_display_pm_suspend);
 
 	mi_cfg = &panel->mi_cfg;
-	mi_dsi_panel_count_init(panel);
+
 
 	mi_cfg->doze_wakelock = wakeup_source_register(NULL, "doze_wakelock");
 	if (!mi_cfg->doze_wakelock) {
@@ -159,14 +154,14 @@ bool is_backlight_set_skip(struct dsi_panel *panel, u32 bl_lvl)
 					" panel->mi_cfg.panel_id >> 32 = %x\n", panel->type, bl_lvl, panel->mi_cfg.panel_id >> 32);
 				 if (panel->mi_cfg.feature_val[DISP_FEATURE_LOCAL_HBM] == LOCAL_HBM_NORMAL_WHITE_1000NIT ||
 					panel->mi_cfg.feature_val[DISP_FEATURE_LOCAL_HBM] ==  LOCAL_HBM_HLPM_WHITE_1000NIT) {
-					if (panel->mi_cfg.panel_id == 0x4C3900420200)
+					if (panel->mi_cfg.panel_id == 0x4C3900420200 || panel->mi_cfg.panel_id == 0x4C3900360200)
 						mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, bl_lvl);
 					else
 						mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, bl_lvl);
 					dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT);
 				 } else if (panel->mi_cfg.feature_val[DISP_FEATURE_LOCAL_HBM] ==  LOCAL_HBM_NORMAL_WHITE_110NIT ||
 					panel->mi_cfg.feature_val[DISP_FEATURE_LOCAL_HBM] ==  LOCAL_HBM_HLPM_WHITE_110NIT) {
-					if (panel->mi_cfg.panel_id == 0x4C3900420200)
+					if (panel->mi_cfg.panel_id == 0x4C3900420200 || panel->mi_cfg.panel_id == 0x4C3900360200)
 						mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, bl_lvl);
 					else
 						mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, bl_lvl);
@@ -1251,6 +1246,90 @@ exit:
 	return rc;
 }
 
+static int mi_dsi_update_lhbm_dc_gain(struct dsi_panel *panel, enum dsi_cmd_set_type type){
+	struct dsi_display_mode_priv_info *priv_info;
+	struct dsi_cmd_desc *cmds = NULL;
+	struct lhbm_cfg *lhbm_cfg= NULL;
+	struct mi_dsi_panel_cfg *mi_cfg  = NULL;
+	u32 count;
+	int index_1 = -1;
+	int index_2 = -1;
+	int index_3 = -1;
+	u8 *tx_buf;
+	int rc = 0;
+
+	if (!panel || !panel->cur_mode || !panel->cur_mode->priv_info) {
+		DISP_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	mi_cfg = &panel->mi_cfg;
+	lhbm_cfg = &panel->mi_cfg.lhbm_cfg;
+	priv_info = panel->cur_mode->priv_info;
+
+	switch (type) {
+		case DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT:
+		case DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT:
+			index_1 = mi_cfg->local_hbm_dc_gain_index;
+			index_2 = mi_cfg->local_hbm_dc_gain_index + 2;
+			index_3 = mi_cfg->local_hbm_dc_gain_index + 4;
+			break;
+		case DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL:
+			index_1 = mi_cfg->local_hbm_normal_dc_gain_index;
+			index_2 = mi_cfg->local_hbm_normal_dc_gain_index + 2;
+			index_3 = mi_cfg->local_hbm_normal_dc_gain_index + 4;
+			break;
+		default:
+			DISP_ERROR("%s panel wrong cmd type!\n", panel->type);
+			return -EINVAL;
+	}
+
+	if (index_1 < 0 || index_2 < 0 || index_3 < 0 ) {
+		DISP_DEBUG("%s panel cmd[%s] dc gain update not supported\n",
+				panel->type, cmd_set_prop_map[type]);
+		return 0;
+	}
+
+	DISP_INFO("[%s] lhbm update DC gain param start gir %d\n", panel->type,mi_cfg->gir_enabled);
+
+	cmds = priv_info->cmd_sets[type].cmds;
+	count = priv_info->cmd_sets[type].count;
+
+	if (cmds && count >= index_3) {
+	tx_buf = (u8 *)cmds[index_1].msg.tx_buf;
+		if (mi_cfg->gir_enabled) {
+		tx_buf[0] = 0xE1;
+		DISP_INFO("panel lhbm dc gain value cmd[0x%02x] \n", tx_buf[0]);
+	} else {
+		tx_buf[0] = 0xD2;
+		DISP_INFO("panel lhbm dc gain value cmd[0x%02x] \n", tx_buf[0]);
+	}
+
+
+	tx_buf = (u8 *)cmds[index_2].msg.tx_buf;
+		if (mi_cfg->gir_enabled) {
+		tx_buf[0] = 0xE1;
+				DISP_INFO("panel lhbm dc gain value cmd[0x%02x] \n", tx_buf[0]);
+	} else {
+		tx_buf[0] = 0xD2;
+		DISP_INFO("panel lhbm dc gain value cmd[0x%02x] \n", tx_buf[0]);
+	}
+
+
+	tx_buf = (u8 *)cmds[index_3].msg.tx_buf;
+	if (mi_cfg->gir_enabled) {
+		tx_buf[0] = 0xE1;
+		DISP_INFO("panel lhbm dc gain value cmd[0x%02x] \n", tx_buf[0]);
+	} else {
+		tx_buf[0] = 0xD2;
+		DISP_INFO("panel lhbm dc gain value cmd[0x%02x] \n", tx_buf[0]);
+	}
+	}
+
+	DISP_INFO("[%s] lhbm update dc gain param done\n", panel->type);
+	return rc;
+}
+
 int mi_dsi_panel_update_lhbm_param(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -1383,7 +1462,7 @@ int mi_dsi_panel_update_lhbm_param(struct dsi_panel *panel)
 						tx_buf[4] = lhbm_cfg->lhbm_rgb_param[3];
 						tx_buf[5] = lhbm_cfg->lhbm_rgb_param[4];
 						tx_buf[6] = lhbm_cfg->lhbm_rgb_param[5];
-						DISP_INFO("panel lhbm rgbs cmd[0x%02x] = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n", 
+						DISP_INFO("panel lhbm rgbs cmd[0x%02x] = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
 							tx_buf[0], tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4], tx_buf[5], tx_buf[6]);
 					} else {
 						if (tx_buf)
@@ -1414,7 +1493,7 @@ int mi_dsi_panel_update_lhbm_param(struct dsi_panel *panel)
 						tx_buf[4] = lhbm_cfg->lhbm_rgb_param[9];
 						tx_buf[5] = lhbm_cfg->lhbm_rgb_param[10];
 						tx_buf[6] = lhbm_cfg->lhbm_rgb_param[11];
-						DISP_INFO("panel lhbm rgbs cmd[0x%02x] = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n", 
+						DISP_INFO("panel lhbm rgbs cmd[0x%02x] = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
 							tx_buf[0], tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4], tx_buf[5], tx_buf[6]);
 					} else {
 						if (tx_buf)
@@ -1439,17 +1518,25 @@ int mi_dsi_panel_update_lhbm_param(struct dsi_panel *panel)
 				if (cmds && count >= (panel->mi_cfg.local_hbm_on_87_index-3 )) {
 					tx_buf = (u8 *)cmds[panel->mi_cfg.local_hbm_on_87_index - 3].msg.tx_buf;
 					if (tx_buf && tx_buf[0] == 0xD0) {
-						tx_buf[1] = 0;
-						tx_buf[2] = 0;
-						tx_buf[3] = lhbm_cfg->lhbm_rgb_param[12];
-						tx_buf[4] = lhbm_cfg->lhbm_rgb_param[13];
-						tx_buf[5] = 0;
-						tx_buf[6] = 0;
-						if(mi_cfg->panel_id == 0x4C3900360200){
+						if(mi_cfg->panel_id == 0x4C3900420200){
 							tx_buf[1] = 0;
 							tx_buf[2] = 0;
-							tx_buf[3] = lhbm_cfg->lhbm_rgb_param[14];
-							tx_buf[4] = lhbm_cfg->lhbm_rgb_param[15];
+							tx_buf[3] = lhbm_cfg->lhbm_rgb_param[18];
+							tx_buf[4] = lhbm_cfg->lhbm_rgb_param[19];
+							tx_buf[5] = 0;
+							tx_buf[6] = 0;
+						} else if(mi_cfg->panel_id == 0x4C3900360200){
+							tx_buf[1] = 0;
+							tx_buf[2] = 0;
+							tx_buf[3] = lhbm_cfg->lhbm_rgb_param[20];
+							tx_buf[4] = lhbm_cfg->lhbm_rgb_param[21];
+							tx_buf[5] = 0;
+							tx_buf[6] = 0;
+						} else {
+							tx_buf[1] = 0;
+							tx_buf[2] = 0;
+							tx_buf[3] = lhbm_cfg->lhbm_rgb_param[12];
+							tx_buf[4] = lhbm_cfg->lhbm_rgb_param[13];
 							tx_buf[5] = 0;
 							tx_buf[6] = 0;
 						}
@@ -1498,7 +1585,6 @@ int mi_dsi_panel_set_doze_brightness(struct dsi_panel *panel,
 	mutex_lock(&panel->panel_lock);
 
 	mi_cfg = &panel->mi_cfg;
-
 	if (doze_brightness != DOZE_TO_NORMAL && !is_aod_and_panel_initialized(panel)) {
 		DISP_ERROR("Skip! %s panel set doze brightness %d, power mode(%s) initialized(%d)\n",
 			panel->type, doze_brightness,
@@ -1520,7 +1606,8 @@ int mi_dsi_panel_set_doze_brightness(struct dsi_panel *panel,
 		(panel->mi_cfg.panel_id == 0x4B3800420200  ||
 		panel->mi_cfg.panel_id == 0x4B394200420200 ||
 		panel->mi_cfg.panel_id == 0x4B335300420200 ||
-		panel->mi_cfg.panel_id == 0x4B394500420200)) {
+		panel->mi_cfg.panel_id == 0x4B394500420200 ||
+		panel->mi_cfg.panel_id == 0x4B394500350200)) {
 		if (mi_cfg->aod_bl_51ctl) {
 			if (mi_cfg->bl_51ctl_32bit) {
 				if (doze_brightness == DOZE_BRIGHTNESS_HBM) {
@@ -2077,7 +2164,7 @@ int mi_dsi_fps_switch(struct dsi_panel *panel)
 
 	mi_cfg = &panel->mi_cfg;
 
-	if ((mi_cfg->panel_id == 0x4B335300420200 || panel->mi_cfg.panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500420200)
+	if ((mi_cfg->panel_id == 0x4B335300420200 || panel->mi_cfg.panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500420200 || mi_cfg->panel_id == 0x4B394500350200)
 		&& is_aod_and_panel_initialized(panel)) {
 		if(panel->cur_mode->timing.refresh_rate != 60)
 		{
@@ -2112,6 +2199,93 @@ int mi_dsi_fps_switch(struct dsi_panel *panel)
 			mi_dsi_panel_demura_comp(panel, mi_cfg->last_bl_level);
 		}
 	}
+	return rc;
+}
+
+static int mi_dsi_update_lhbm_110nit_D0reg(struct dsi_panel *panel, enum dsi_cmd_set_type type){
+	struct dsi_display_mode_priv_info *priv_info;
+	struct dsi_cmd_desc *cmds = NULL;
+	struct lhbm_cfg *lhbm_cfg= NULL;
+	struct mi_dsi_panel_cfg *mi_cfg  = NULL;
+	u32 count;
+	int index;
+	u8 *tx_buf;
+	int rc = 0;
+
+	if (!panel || !panel->cur_mode || !panel->cur_mode->priv_info) {
+		DISP_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	mi_cfg = &panel->mi_cfg;
+	lhbm_cfg = &panel->mi_cfg.lhbm_cfg;
+	priv_info = panel->cur_mode->priv_info;
+
+	switch (type) {
+		case DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT:
+			index = mi_cfg->local_hbm_on_87_index - 3;
+			break;
+		case DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT:
+			index = mi_cfg->local_hbm_hlpm_on_87_index - 3;
+			break;
+		default:
+			DISP_ERROR("%s panel wrong cmd type!\n", panel->type);
+			return -EINVAL;
+	}
+
+	if (index < 0) {
+		DISP_DEBUG("%s panel cmd[%s] update not supported\n",
+			panel->type, cmd_set_prop_map[type]);
+			return 0;
+	}
+
+	/* When aod on, gir should be set to off */
+	if (is_aod_and_panel_initialized(panel)){
+		mi_cfg->gir_enabled = false;
+	}
+
+	DISP_INFO("[%s] lhbm update ll0nit D0 reg param start gir %d\n", panel->type,mi_cfg->gir_enabled);
+
+	cmds = priv_info->cmd_sets[type].cmds;
+	count = priv_info->cmd_sets[type].count;
+	if (cmds && count >= index) {
+		tx_buf = (u8 *)cmds[index].msg.tx_buf;
+		if (tx_buf && tx_buf[0] == 0xD0) {
+			if (mi_cfg->gir_enabled) {
+				tx_buf[1] = lhbm_cfg->lhbm_rgb_param[8];
+				tx_buf[2] = lhbm_cfg->lhbm_rgb_param[9];
+				tx_buf[3] = lhbm_cfg->lhbm_rgb_param[12];
+				tx_buf[4] = lhbm_cfg->lhbm_rgb_param[13];
+				tx_buf[5] = lhbm_cfg->lhbm_rgb_param[16];
+				tx_buf[6] = lhbm_cfg->lhbm_rgb_param[17];
+				DISP_INFO("panel lhbm 110nit rgbs cmd[0x%02x] = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
+					tx_buf[0], tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4], tx_buf[5], tx_buf[6]);
+			} else {
+				tx_buf[1] = lhbm_cfg->lhbm_rgb_param[6];
+				tx_buf[2] = lhbm_cfg->lhbm_rgb_param[7];
+				tx_buf[3] = lhbm_cfg->lhbm_rgb_param[10];
+				tx_buf[4] = lhbm_cfg->lhbm_rgb_param[11];
+				tx_buf[5] = lhbm_cfg->lhbm_rgb_param[14];
+				tx_buf[6] = lhbm_cfg->lhbm_rgb_param[15];
+				DISP_INFO("panel lhbm 110nit rgbs cmd[0x%02x] = 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
+					tx_buf[0], tx_buf[1], tx_buf[2], tx_buf[3], tx_buf[4], tx_buf[5], tx_buf[6]);
+			}
+
+		} else {
+			if (tx_buf) {
+				DISP_ERROR("%s panel lhbm 110nit rgb index = %d, tx_buf[0] = 0x%02X, check cmd[%s] index\n",
+					panel->type, index, tx_buf[0], cmd_set_prop_map[type]);
+			} else {
+				DISP_ERROR("%s panel tx_buf is NULL pointer\n", panel->type);
+			}
+			rc = -EINVAL;
+		}
+	} else {
+		DISP_ERROR("%s panel lhbm 110nit rgb cmd[%s] 0xD0 index(%d) error\n",
+			panel->type, cmd_set_prop_map[type], index);
+		rc = -EINVAL;
+	}
+	DISP_INFO("[%s] lhbm update ll0nit D0 reg param done\n", panel->type);
 	return rc;
 }
 
@@ -2295,7 +2469,12 @@ static int mi_dsi_update_hbm_cmd_87reg(struct dsi_panel *panel,
 				tx_buf[1] = (aa_alpha_set_4b39[bl_lvl] >> 8) & 0x0f;
 				tx_buf[2] = aa_alpha_set_4b39[bl_lvl] & 0xff;
 			}
-			DISP_INFO("mi_dsi_update_hbm_cmd_87reg panel aa cmd[0x%02x] = 0x%02x 0x%02x\n", tx_buf[0], tx_buf[1], tx_buf[2]);
+			if(mi_cfg->panel_id == 0x4B394500350200)
+			{
+				tx_buf[1] = (aa_alpha_set_4b3945[bl_lvl] >> 8) & 0xff;
+				tx_buf[2] = aa_alpha_set_4b3945[bl_lvl] & 0xff;
+			}
+			//DISP_INFO("panel aa cmd[0x%02x] = 0x%02x 0x%02x\n", tx_buf[0], tx_buf[1], tx_buf[2]);
 		} else {
 			if (tx_buf) {
 				DISP_ERROR("%s panel aa index = %d, tx_buf[0] = 0x%02X, check cmd[%s] index\n",
@@ -2486,6 +2665,7 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 		rc = -ENODEV;
 		goto exit;
 	}
+
 	mi_cfg = &panel->mi_cfg;
 
 	switch (ctl->feature_id) {
@@ -2504,7 +2684,7 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 			mi_cfg->thermal_max_brightness_clone != 2047)
 			break;
 		/*Do not turn on and off hbm in AOD mode*/
-		if(mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4C3900420200
+		if(mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500350200 || mi_cfg->panel_id == 0x4C3900420200
 			|| mi_cfg->panel_id == 0x4C3900360200 || mi_cfg->panel_id == 0x4B394500420200){
 			if(mi_cfg->doze_brightness == DOZE_BRIGHTNESS_HBM || mi_cfg->doze_brightness == DOZE_BRIGHTNESS_LBM)
 			break;
@@ -2513,7 +2693,6 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 		if (ctl->feature_val == FEATURE_ON) {
 			if (mi_cfg->feature_val[DISP_FEATURE_HBM_FOD] != FEATURE_ON) {
 				dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_HBM_ON);
-				mi_dsi_panel_HBM_count(panel, 1, 0);
 				mi_cfg->dimming_state = STATE_DIM_BLOCK;
 			}
 		} else {
@@ -2521,7 +2700,6 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 				if (mi_cfg->hbm_51_ctl_flag && mi_cfg->hbm_off_51_index >= 0)
 					mi_dsi_update_hbm_cmd_51reg(panel, DSI_CMD_SET_MI_HBM_OFF, mi_cfg->last_bl_level);
 				dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_HBM_OFF);
-				mi_dsi_panel_HBM_count(panel, 0, 0);
 				mi_cfg->dimming_state = STATE_DIM_RESTORE;
 			}
 		}
@@ -2688,6 +2866,8 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 			} else {
 				DISP_INFO("LOCAL_HBM_OFF_TO_NORMAL\n");
 				mi_dsi_update_hbm_cmd_51reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL, panel->mi_cfg.last_bl_level);
+				if (mi_cfg->panel_id == 0x4C3900360200)
+					mi_dsi_update_lhbm_dc_gain(panel,DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
 				dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
 				mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
 				mi_cfg->doze_brightness_backup = DOZE_TO_NORMAL;
@@ -2719,18 +2899,23 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 						break;
 				}
 			}
+			if (mi_cfg->panel_id == 0x4C3900360200)
+				mi_dsi_update_lhbm_dc_gain(panel,DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
 			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
 			mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
 			mi_cfg->fod_anim_on = true;
 			break;
 		case LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE:
 			DISP_INFO("LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE\n");
-			if (mi_cfg->panel_id == 0x4B3800420200 || mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4C3900420200 
-				|| mi_cfg->panel_id == 0x4C3900360200 || mi_cfg->panel_id == 0x4B394500420200)
+
+			if (mi_cfg->panel_id == 0x4B3800420200 || mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500420200 || mi_cfg->panel_id == 0x4B394500350200)
+				mi_dsi_update_hbm_cmd_51reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL, 0);
+			else if(mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
 				mi_dsi_update_hbm_cmd_51reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL, 0);
 			else
 				mi_dsi_update_backlight_in_aod(panel, true);
-
+			if (mi_cfg->panel_id == 0x4C3900360200)
+				mi_dsi_update_lhbm_dc_gain(panel,DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
 			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_OFF_TO_NORMAL);
 			mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
 			mi_cfg->doze_brightness_backup = DOZE_TO_NORMAL;
@@ -2752,47 +2937,47 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 				mi_dsi_update_hbm_cmd_51reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_bl_level);
 				mi_dsi_update_hbm51reg_in_aod(panel);
 			}
-
-			if (mi_cfg->panel_id == 0x4B394500420200){
+			if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
 				DISP_INFO("LOCAL_HBM_NORMAL_WHITE_1000NIT not update 87reg\n");
 			} else {
 				mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
-                        }
+			}
 			if (is_aod_and_panel_initialized(panel)) {
 				switch (mi_cfg->doze_brightness) {
 					case DOZE_BRIGHTNESS_HBM:
-						if (mi_cfg->panel_id == 0x4B394500420200){
-									if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_hbm_dbv_level){
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
-									} else {
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_hbm_dbv_level);
-										}
-						}else {
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_hbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_hbm_dbv_level);
+							}
+						} else {
 							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_hbm_dbv_level);
-                                                }
+						}
 						DISP_INFO("LOCAL_HBM_NORMAL_WHITE_1000NIT in doze_hbm_dbv_level\n");
 						break;
 					case DOZE_BRIGHTNESS_LBM:
-						if (mi_cfg->panel_id == 0x4B394500420200){
-									if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_lbm_dbv_level){
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
-									} else {
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);
-										}
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_lbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);
+							}
 						} else {
-							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);
+							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);						DISP_INFO("LOCAL_HBM_NORMAL_WHITE_1000NIT in doze_lbm_dbv_level\n");
 						}
-						DISP_INFO("LOCAL_HBM_NORMAL_WHITE_1000NIT in doze_lbm_dbv_level\n");
 						break;
 					default:
 						DISP_INFO("LOCAL_HBM_NORMAL_WHITE_1000NIT defaults\n");
 						break;
 				}
-			} else {
-                          	if (mi_cfg->panel_id == 0x4B394500420200){
-					mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
+			} else{
+				if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+					mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
 				}
 			}
+			if (mi_cfg->panel_id == 0x4C3900360200)
+				mi_dsi_update_lhbm_dc_gain(panel,DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT);
 			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_1000NIT);
 			mi_cfg->dimming_state = STATE_DIM_BLOCK;
 			break;
@@ -2811,9 +2996,47 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 		case LOCAL_HBM_NORMAL_WHITE_110NIT:
 			DISP_INFO("LOCAL_HBM_NORMAL_WHITE_110NIT\n");
 			if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
-				mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+				DISP_INFO("LOCAL_HBM_NORMAL_WHITE_110NIT not update 87reg\n");
 			else
 				mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+			if (is_aod_and_panel_initialized(panel)) {
+				switch (mi_cfg->doze_brightness) {
+					case DOZE_BRIGHTNESS_HBM:
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_hbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, mi_cfg->doze_hbm_dbv_level);
+							}
+						}
+						DISP_INFO("DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT in doze_hbm_dbv_level\n");
+						break;
+					case DOZE_BRIGHTNESS_LBM:
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_lbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, mi_cfg->doze_lbm_dbv_level);
+							}
+						}
+						DISP_INFO("DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT in doze_lbm_dbv_level\n");
+						break;
+					default:
+						DISP_INFO("DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT defaults\n");
+						break;
+				}
+			} else {
+				if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
+					mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+			}
+
+			if(mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+				mi_dsi_update_lhbm_110nit_D0reg(panel,DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT);
+			}
+
+			if (mi_cfg->panel_id == 0x4C3900360200)
+				mi_dsi_update_lhbm_dc_gain(panel,DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT);
+
 			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_NORMAL_WHITE_110NIT);
 			mi_cfg->dimming_state = STATE_DIM_BLOCK;
 			break;
@@ -2828,35 +3051,35 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 			break;
 		case LOCAL_HBM_HLPM_WHITE_1000NIT:
 			DISP_INFO("LOCAL_HBM_HLPM_WHITE_1000NIT\n");
-			if (mi_cfg->panel_id == 0x4B394500420200){
+			if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
 				DISP_INFO("LOCAL_HBM_HLPM_WHITE_1000NIT not update 87reg\n");
 			} else {
 				mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
-                        }
+			}
 			if (is_aod_and_panel_initialized(panel)) {
 				switch (mi_cfg->doze_brightness) {
 					case DOZE_BRIGHTNESS_HBM:
-						if (mi_cfg->panel_id == 0x4B394500420200){
-									if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_hbm_dbv_level){
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
-									} else {
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, mi_cfg->doze_hbm_dbv_level);
-										}
-						}else {
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < 245){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, mi_cfg->doze_hbm_dbv_level);
+							}
+						} else {
 							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, mi_cfg->doze_hbm_dbv_level);
-                                                }
+						}
 						DISP_INFO("LOCAL_HBM_HLPM_WHITE_1000NIT in doze_hbm_dbv_level\n");
 						break;
 					case DOZE_BRIGHTNESS_LBM:
-						if (mi_cfg->panel_id == 0x4B394500420200){
-									if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_lbm_dbv_level){
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
-									} else {
-										mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);
-										}
-						}else {
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_lbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);
+							}
+						} else {
 							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, mi_cfg->doze_lbm_dbv_level);
-                                                }
+						}
 						DISP_INFO("LOCAL_HBM_HLPM_WHITE_1000NIT in doze_lbm_dbv_level\n");
 						break;
 					default:
@@ -2864,8 +3087,8 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 						break;
 				}
 			} else {
-				if (mi_cfg->panel_id == 0x4B394500420200){
-					mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
+				if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+					mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT, panel->mi_cfg.last_no_zero_bl_level);
 				}
 			}
 			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_1000NIT);
@@ -2874,29 +3097,45 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 		case LOCAL_HBM_HLPM_WHITE_110NIT:
 			DISP_INFO("LOCAL_HBM_HLPM_WHITE_110NIT\n");
 			if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
-				mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+				DISP_INFO("LOCAL_HBM_HLPM_WHITE_110NIT not update 87reg\n");
 			else
 				mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
 			if (is_aod_and_panel_initialized(panel)) {
 				switch (mi_cfg->doze_brightness) {
 					case DOZE_BRIGHTNESS_HBM:
-						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
-							mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, mi_cfg->doze_hbm_dbv_level);
-						else
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_hbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, mi_cfg->doze_hbm_dbv_level);
+							}
+						}else {
 							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, mi_cfg->doze_hbm_dbv_level);
-						DISP_INFO("LOCAL_HBM_HLPM_WHITE_110NIT in doze_hbm_dbv_level\n");
+						}
+						DISP_INFO("LOCAL_HBM_HLPM_WHITE_1000NIT in doze_hbm_dbv_level\n");
 						break;
 					case DOZE_BRIGHTNESS_LBM:
-						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
-							mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, mi_cfg->doze_lbm_dbv_level);
-						else
+						if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+							if(panel->mi_cfg.last_no_zero_bl_level < mi_cfg->doze_lbm_dbv_level){
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+							} else {
+								mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, mi_cfg->doze_lbm_dbv_level);
+							}
+						}else {
 							mi_dsi_update_hbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, mi_cfg->doze_lbm_dbv_level);
-						DISP_INFO("LOCAL_HBM_HLPM_WHITE_110NIT in doze_lbm_dbv_level\n");
+						}
+						DISP_INFO("DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT in doze_lbm_dbv_level\n");
 						break;
 					default:
-						DISP_INFO("LOCAL_HBM_HLPM_WHITE_110NIT defaults\n");
+						DISP_INFO("DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT defaults\n");
 						break;
 				}
+			} else {
+				if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200)
+					mi_dsi_update_lhbm_cmd_87reg(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT, panel->mi_cfg.last_no_zero_bl_level);
+			}
+			if(mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+				mi_dsi_update_lhbm_110nit_D0reg(panel,DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT);
 			}
 			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_LOCAL_HBM_HLPM_WHITE_110NIT);
 			mi_dsi_update_backlight_in_aod(panel, false);
@@ -2991,7 +3230,6 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 						panel->name, rc);
 				} else {
 					mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
-					panel->mi_cfg.local_hbm_to_normal = true;
 				}
 				mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
 				mi_cfg->fod_anim_on = true;
@@ -3005,14 +3243,21 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 						panel->name, rc);
 				} else {
 					mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
-					panel->mi_cfg.local_hbm_to_normal = true;
 				}
 				mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
 				mi_cfg->fod_anim_on = true;
 				break;
 			default:
-				DISP_INFO("DISP_FEATURE_AOD_TO_NORMAL ON doze_brightness_backup=%d\n",
-					mi_cfg->doze_brightness_backup);
+				DISP_INFO("enter DOZE NONE NOLP\n");
+				rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DOZE_NONE_NOLP);
+				if (rc) {
+					DISP_ERROR("[%s] failed to send DSI_CMD_SET_MI_DOZE_NONE_NOLP cmd, rc=%d\n",
+						panel->name, rc);
+				} else {
+					mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
+				}
+				mi_dsi_update_micfg_flags(panel, PANEL_NOLP);
+				mi_cfg->fod_anim_on = true;
 				break;
 			}
 		} else if (ctl->feature_val == FEATURE_OFF) {
@@ -3024,6 +3269,13 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 				if (rc) {
 					DISP_ERROR("[%s] failed to send DSI_CMD_SET_MI_DOZE_HBM_NOLP cmd, rc=%d\n",
 						panel->name, rc);
+				}
+				if (mi_cfg->panel_id == 0x4C3900360200 && mi_cfg->doze_brightness == 0) {
+				rc = mi_dsi_panel_set_aod_brightness(panel,mi_cfg->doze_brightness, BRIGHTNESS_NORMAL_AOD_MODE);
+				DISP_INFO("Set aod brightness is 0 doze_brightness=%d\n",mi_cfg->doze_brightness);
+                                }
+				if (rc) {
+					DISP_ERROR("failed to set_aod_brightness, rc=%d\n", rc);
 				}
 				mi_dsi_update_micfg_flags(panel, PANEL_DOZE_HIGH);
 				mi_cfg->fod_anim_on = false;
@@ -3037,6 +3289,13 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 				if (rc) {
 					DISP_ERROR("[%s] failed to send DSI_CMD_SET_MI_DOZE_LBM_NOLP cmd, rc=%d\n",
 						panel->name, rc);
+				}
+				if (mi_cfg->panel_id == 0x4C3900360200 && mi_cfg->doze_brightness == 0) {
+				rc = mi_dsi_panel_set_aod_brightness(panel,mi_cfg->doze_brightness, BRIGHTNESS_NORMAL_AOD_MODE);
+				DISP_INFO("Set aod brightness is 0 doze_brightness=%d\n",mi_cfg->doze_brightness);
+                                }
+				if (rc) {
+					DISP_ERROR("failed to set_aod_brightness, rc=%d\n", rc);
 				}
 				mi_dsi_update_micfg_flags(panel, PANEL_DOZE_LOW);
 				mi_cfg->fod_anim_on = false;
@@ -3882,8 +4141,12 @@ int mi_dsi_panel_set_aod_brightness(struct dsi_panel *panel,
 		param_num = 4;
 	}
 
-	ret = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-				 payload, param_num);
+	if(panel->power_mode != SDE_MODE_DPMS_OFF){
+		ret = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				payload, param_num);
+	} else {
+		DISP_ERROR("skip set backlight due to panel is off \n",panel->power_mode);
+	}
 	if (ret)
 		DSI_ERR("%s panel failed to update aod backlight:%d\n",
 				panel->type, brightness);

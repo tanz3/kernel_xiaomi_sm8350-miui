@@ -388,9 +388,7 @@ int mi_disp_feature_init(void)
 
 	DISP_INFO("mi disp_feature driver initialized!\n");
 
-	if (hwconf_init() < 0) {
-		DISP_ERROR("can not initialize hwconf.\n");
-	}
+	hwconf_init();
 
 	return 0;
 

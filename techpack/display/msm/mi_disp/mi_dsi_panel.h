@@ -35,7 +35,7 @@ struct flatmode_cfg {
 
 struct lhbm_cfg {
 	bool update_done;
-	u8 lhbm_rgb_param[14];
+	u8 lhbm_rgb_param[26];
 };
 
 struct vdc_cfg {
@@ -179,6 +179,8 @@ struct mi_dsi_panel_cfg {
 	int local_hbm_hlpm_on_87_index;
 	int local_hbm_normal_alpha_87_index;
 	int local_hbm_hlpm_alpha_87_index;
+	int local_hbm_dc_gain_index;
+	int local_hbm_normal_dc_gain_index;
 	int cup_dbi_reg_index;
 	bool update_vdc_param_enabled;
 	int dsi_on_e9_index;

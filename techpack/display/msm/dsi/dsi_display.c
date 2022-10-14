@@ -26,7 +26,6 @@
 #include "mi_disp_feature.h"
 #include "mi_dsi_display.h"
 #include "mi_disp_print.h"
-#include "mi_dsi_panel_count.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -5634,7 +5633,22 @@ int dsi_display_splash_res_cleanup(struct  dsi_display *display)
 
 static int dsi_display_force_update_dsi_clk(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
+	struct dsi_display_ctrl *ctrl;
+
+	/*
+	 * The force update dsi clock, is the only clock update function that toggles the state of
+	 * DSI clocks without any ref count protection. With the addition of ASYNC command wait,
+	 * there is a need for adding a check for any queued waits before updating these clocks.
+	 */
+	display_for_each_ctrl(i, display) {
+		ctrl = &display->ctrl[i];
+		if (!ctrl->ctrl || !ctrl->ctrl->dma_wait_queued)
+			continue;
+		flush_workqueue(display->dma_cmd_workq);
+		cancel_work_sync(&ctrl->ctrl->dma_cmd_wait);
+		ctrl->ctrl->dma_wait_queued = false;
+	}
 
 	rc = dsi_display_link_clk_force_update_ctrl(display->dsi_clk_handle);
 
@@ -7636,8 +7650,6 @@ int dsi_display_set_mode(struct dsi_display *display,
 		notify_data.disp_id = mi_get_disp_id(display);
 		mi_disp_notifier_call_chain(MI_DISP_FPS_CHANGE_EVENT, &notify_data);
 		mi_disp_feature_sysfs_notify(event.disp_id, MI_SYSFS_DYNAMIC_FPS);
-		if (display->panel->mi_count.panel_active_count_enable)
-			mi_dsi_panel_fps_count_lock(display->panel, timing.refresh_rate, 1);
 	}
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));

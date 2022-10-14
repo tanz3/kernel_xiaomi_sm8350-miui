@@ -67,10 +67,7 @@ int mi_dsi_display_get_brightness_clone(void *display,
 ssize_t mi_dsi_display_get_hw_vsync_info(void *display,
 			char *buf, size_t size);
 
-int mi_dsi_display_set_disp_count(void *display, char *buf);
 
-int mi_dsi_display_get_disp_count(void *display,
-			char *buf, size_t size);
 
 int mi_dsi_display_esd_irq_ctrl(struct dsi_display *display,
 			bool enable);
