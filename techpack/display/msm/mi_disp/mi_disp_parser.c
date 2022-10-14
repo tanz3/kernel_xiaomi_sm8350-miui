@@ -486,7 +486,7 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 				memcpy(mi_cfg->demura_data, demura_ptr, item_size);
 			}
 		}
-		if (mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500420200) {
+		if (mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500350200 || mi_cfg->panel_id == 0x4B394500420200) {
 			lhbm_ptr = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_SW_DISPLAY_LHBM_TABLE, &item_size);
 			if (!IS_ERR(lhbm_ptr) && item_size > 0) {
 				DSI_INFO("lhbm data size %d\n", item_size);
@@ -581,6 +581,22 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 	} else {
 		DISP_INFO("mi,aod-lbm-51-index is %d\n", mi_cfg->aod_lbm_51_index);
 	}
+
+	rc = utils->read_u32(utils->data, "mi,local_hbm_dc_gain_index", &mi_cfg->local_hbm_dc_gain_index);
+        if (rc) {
+                mi_cfg->local_hbm_dc_gain_index = -1;
+                DISP_INFO("mi,local_hbm_dc_gain_index not specified\n");
+        } else {
+                DISP_INFO("mi,local_hbm_dc_gain_index is %d\n", mi_cfg->local_hbm_dc_gain_index);
+        }
+
+	rc = utils->read_u32(utils->data, "mi,local_hbm_normal_dc_gain_index", &mi_cfg->local_hbm_normal_dc_gain_index);
+        if (rc) {
+                mi_cfg->local_hbm_normal_dc_gain_index = -1;
+                DISP_INFO("mi,local_hbm_normal_dc_gain_index not specified\n");
+        } else {
+                DISP_INFO("mi,local_hbm_normal_dc_gain_index is %d\n", mi_cfg->local_hbm_normal_dc_gain_index);
+        }
 
 	rc = utils->read_u32(utils->data, "mi,mdss-dsi-panel-dc-threshold", &mi_cfg->dc_threshold);
 	if (rc) {

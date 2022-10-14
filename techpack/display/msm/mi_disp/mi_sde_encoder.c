@@ -142,14 +142,14 @@ void mi_sde_encoder_calc_fps(struct drm_encoder *encoder)
 	if (sde_encoder_is_primary_display(encoder)) {
 		display = mi_get_primary_dsi_display();
 		if (display) {
-			display->panel->mi_count.kickoff_count++;
+			DISP_DEBUG("display kickoff");
 		} else {
 			return;
 		}
 	} else {
 		display = mi_get_secondary_dsi_display();
 		if (display) {
-			display->panel->mi_count.kickoff_count++;
+			DISP_DEBUG("display kickoff");
 		} else {
 			return;
 		}
