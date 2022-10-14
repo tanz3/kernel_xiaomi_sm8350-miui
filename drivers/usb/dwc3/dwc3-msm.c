@@ -2624,6 +2624,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc,
 				GSI_EN_MASK, 0);
 		}
 		break;
+	case DWC3_USB_RESTART_EVENT:
+		dev_dbg(mdwc->dev, "DWC3_USB_RESTART_EVENT\n");
+		schedule_work(&mdwc->restart_usb_work);
+		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
 		break;
@@ -5691,6 +5695,9 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 		return 0;
 
 	if (mdwc->apsd_source == IIO && chg_type != POWER_SUPPLY_TYPE_USB)
+		return 0;
+
+	if (mA < 100)
 		return 0;
 
 	/* Set max current limit in uA */
