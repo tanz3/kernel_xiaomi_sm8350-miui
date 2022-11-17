@@ -133,6 +133,7 @@ struct xiaomi_touch {
 	struct mutex  prox_mutex;
 	wait_queue_head_t 	wait_queue;
 	struct mutex  fod_press_status_mutex;
+	struct mutex  gesture_single_tap_mutex;
 };
 
 #define LAST_TOUCH_EVENTS_MAX 512
@@ -196,6 +197,8 @@ extern int update_clicktouch_raw(void);
 extern int update_fod_press_status(int value);
 
 extern void last_touch_events_collect(int slot, int state);
+
+extern int notify_gesture_single_tap(void);
 
 int xiaomi_touch_set_suspend_state(int state);
 

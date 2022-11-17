@@ -197,6 +197,7 @@ static struct xiaomi_touch xiaomi_touch_dev = {
 	.prox_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.prox_mutex),
 	.fod_press_status_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.fod_press_status_mutex),
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER(xiaomi_touch_dev.wait_queue),
+	.gesture_single_tap_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.gesture_single_tap_mutex),
 };
 
 struct xiaomi_touch *xiaomi_touch_dev_get(int minor)
@@ -956,14 +957,6 @@ static ssize_t resolution_factor_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d", factor);
 }
 
-static ssize_t fod_press_status_show(struct device *dev,
-struct device_attribute *attr, char *buf)
-{
-	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
-	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->fod_press_status_value);
-}
-
-extern int mi_disp_set_fod_queue_work(u32 fod_btn, bool from_touch);
 int update_fod_press_status(int value)
 {
 	struct xiaomi_touch *dev = NULL;
@@ -980,7 +973,6 @@ int update_fod_press_status(int value)
 	if (value != touch_pdata->fod_press_status_value) {
 		pr_info("%s: value:%d\n", __func__, value);
 		touch_pdata->fod_press_status_value = value;
-		mi_disp_set_fod_queue_work(value, true);
 		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
 		     "fod_press_status");
 	}
@@ -989,6 +981,30 @@ int update_fod_press_status(int value)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(update_fod_press_status);
+
+int notify_gesture_single_tap(void)
+{
+	mutex_lock(&xiaomi_touch_dev.gesture_single_tap_mutex);
+	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+		     "gesture_single_tap_state");
+	mutex_unlock(&xiaomi_touch_dev.gesture_single_tap_mutex);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(notify_gesture_single_tap);
+
+static ssize_t gesture_single_tap_value_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", 1);
+}
+
+static ssize_t fod_press_status_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->fod_press_status_value);
+}
 
 static DEVICE_ATTR(touch_thp_cmd, (S_IRUGO | S_IWUSR | S_IWGRP),
 			thp_cmd_status_show, thp_cmd_status_store);
@@ -1053,6 +1069,8 @@ static DEVICE_ATTR(resolution_factor, 0644, resolution_factor_show, NULL);
 
 static DEVICE_ATTR(fod_press_status, (S_IRUGO | S_IWUSR | S_IWGRP), fod_press_status_show, NULL);
 
+static DEVICE_ATTR(gesture_single_tap_state, (0664), gesture_single_tap_value_show, NULL);
+
 static struct attribute *touch_attr_group[] = {
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
@@ -1079,6 +1097,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_suspend_state.attr,
 	&dev_attr_resolution_factor.attr,
 	&dev_attr_fod_press_status.attr,
+	&dev_attr_gesture_single_tap_state.attr,
 	NULL,
 };
 
