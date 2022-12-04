@@ -38,6 +38,11 @@ struct lhbm_cfg {
 	u8 lhbm_rgb_param[14];
 };
 
+struct vdc_cfg {
+	bool update_done;
+	u8 vdc_param[8];
+};
+
 enum dc_lut_state {
 	DC_LUT_60HZ,
 	DC_LUT_120HZ,
@@ -47,6 +52,7 @@ enum dc_lut_state {
 /* Enter/Exit DC_LUT info */
 struct dc_lut_cfg {
 	bool update_done;
+	int dc_gain_type;
 	int dc_on_index[DC_LUT_MAX];
 	int dc_off_index[DC_LUT_MAX];
 	u8 enter_dc_lut[DC_LUT_MAX][75];
@@ -127,6 +133,9 @@ struct mi_dsi_panel_cfg {
 	/* DC_LUT Setting read */
 	bool dc_update_flag;
 	struct dc_lut_cfg dc_cfg;
+	/* DC sync TE */
+	bool dc_sync_te_flag;
+	bool dc_enabled;
 
 	/* flatmode read */
 	bool flatmode_update_flag;
@@ -136,6 +145,9 @@ struct mi_dsi_panel_cfg {
 	bool lhbm_update_flag;
 	struct lhbm_cfg lhbm_cfg;
 
+	/* vdc read */
+	struct vdc_cfg vdc_cfg;
+
 	/* indicate esd check gpio and config irq */
 	int esd_err_irq_gpio;
 	int esd_err_irq;
@@ -144,6 +156,8 @@ struct mi_dsi_panel_cfg {
 	bool timming_switch_wait_for_te;
 
 	u32 doze_brightness;
+	bool bl_wait_frame;
+	bool bl_enable;
 	/* Some panel nolp command is different according to current doze brightness set,
 	 * But sometimes doze brightness change to DOZE_TO_NORMAL before nolp. So this
 	 * doze_brightness_backup will save doze_brightness and only change to DOZE_TO_NORMAL by nolp.
@@ -163,7 +177,12 @@ struct mi_dsi_panel_cfg {
 	int hbm_brightness_flag;
 	int local_hbm_on_87_index;
 	int local_hbm_hlpm_on_87_index;
+	int local_hbm_normal_alpha_87_index;
+	int local_hbm_hlpm_alpha_87_index;
 	int cup_dbi_reg_index;
+	bool update_vdc_param_enabled;
+	int dsi_on_e9_index;
+	int dsi_on_b9_index;
 
 	bool in_fod_calibration;
 
@@ -194,6 +213,7 @@ struct mi_dsi_panel_cfg {
 	u32 max_brightness_clone;
 	u32 thermal_max_brightness_clone;
 	bool thermal_dimming;
+	bool is_step_hbm;
 
 	bool local_hbm_enabled;
 	int local_hbm_on_1000nit_51_index;
@@ -203,6 +223,7 @@ struct mi_dsi_panel_cfg {
 	u32 fod_low_brightness_lux_threshold;
 	int local_hbm_target;
 	bool fod_low_brightness_allow;
+
 
 	u32 fod_type;
 	bool fp_display_on_optimize;
@@ -222,15 +243,24 @@ struct mi_dsi_panel_cfg {
 	int bl_statistic_cnt;
 	bool bl_need_update;
 
+
 	int aod_hbm_51_index;
 	int aod_lbm_51_index;
+	bool fod_anim_on;
+
+	bool count_hbm_by_backlight;
 
 	u32 aod_exit_delay_time;
 	u64 aod_enter_time;
 	u32 aod_bl_val[AOD_LEVEL_MAX];
 
 	u32 hbm_backlight_threshold;
+
 	bool gir_enabled;
+
+	bool nolp_set_backlight_enable;
+	u32 nolp_bl_index;
+
 	bool aod_brightness_work_flag;
 
 };
@@ -255,7 +285,12 @@ bool is_backlight_set_skip(struct dsi_panel *panel, u32 bl_lvl);
 
 bool is_hbm_fod_on(struct dsi_panel *panel);
 
+bool is_support_nolp_set_backlight(struct dsi_panel *panel);
+
 int mi_dsi_panel_esd_irq_ctrl(struct dsi_panel *panel,
+			bool enable);
+
+int mi_dsi_panel_esd_irq_ctrl_locked(struct dsi_panel *panel,
 			bool enable);
 
 int mi_dsi_panel_write_cmd_set(struct dsi_panel *panel,
@@ -306,6 +341,8 @@ void mi_dsi_update_micfg_flags(struct dsi_panel *panel,
 
 int mi_dsi_panel_nolp(struct dsi_panel *panel);
 
+int mi_dsi_panel_nolp_set_backlight(struct dsi_panel *panel);
+
 void mi_dsi_dc_mode_enable(struct dsi_panel *panel,
 			bool enable);
 
@@ -332,6 +369,7 @@ void mi_dsi_update_backlight_in_aod(struct dsi_panel *panel, bool restore_backli
 
 void mi_dsi_update_dc_backlight(struct dsi_panel *panel, u32 bl_lvl);
 
+void mi_dsi_update_hbm51reg_in_aod(struct dsi_panel *panel);
 void mi_dsi_backlight_logging(struct dsi_panel *panel, u32 bl_lvl);
 
 void mi_disp_handle_lp_event(struct dsi_panel *panel, int power_mode);
@@ -346,12 +384,14 @@ char *mi_dsi_panel_get_bic_reg_data_array(struct dsi_panel *panel);
 
 int mi_dsi_panel_read_and_update_flatmode_param(struct dsi_panel *panel);
 
-int mi_dsi_panel_read_and_update_dc_param(struct dsi_panel *panel);
-
 int mi_dsi_panel_set_cup_dbi(struct dsi_panel *panel, int value);
+
+int mi_dsi_panel_read_and_update_dc_param(struct dsi_panel *panel);
 
 int mi_dsi_panel_set_aod_brightness(struct dsi_panel *panel, u16 brightness, int mode);
 
 int mi_dsi_panel_update_lhbm_param(struct dsi_panel * panel);
+int mi_dsi_panel_update_vdc_param(struct dsi_panel * panel);
 
+void mi_dsi_backlight_logging(struct dsi_panel *panel, u32 bl_lvl);
 #endif /* _MI_DSI_PANEL_H_ */

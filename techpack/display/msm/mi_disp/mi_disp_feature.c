@@ -32,6 +32,7 @@
 #include "mi_disp_sysfs.h"
 #include "mi_disp_procfs.h"
 #include "mi_disp_debugfs.h"
+#include "mi_hwconf_manager.h"
 
 struct disp_feature *g_disp_feature = NULL;
 
@@ -274,7 +275,7 @@ void mi_disp_feature_event_notify(struct disp_event *event, u8 *payload)
 			continue;
 		len = sizeof(struct disp_pending_event) + event->length;
 		if (client->event_space < len) {
-			DISP_ERROR("Insufficient space %d for event %x len %d\n",
+			DISP_WARN("Insufficient space %d for event %x len %d\n",
 				client->event_space, event->type, len);
 			continue;
 		}
@@ -387,6 +388,10 @@ int mi_disp_feature_init(void)
 
 	DISP_INFO("mi disp_feature driver initialized!\n");
 
+	if (hwconf_init() < 0) {
+		DISP_ERROR("can not initialize hwconf.\n");
+	}
+
 	return 0;
 
 err_cdev_register:
@@ -400,6 +405,8 @@ err_core_deinit:
 
 void mi_disp_feature_deinit(void)
 {
+	hwconf_exit();
+
 	if (!g_disp_feature)
 		return;
 	device_destroy(g_disp_feature->class, g_disp_feature->dev_id);
