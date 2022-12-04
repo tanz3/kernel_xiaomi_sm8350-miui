@@ -26,6 +26,7 @@
 #include "mi_disp_feature.h"
 #include "mi_dsi_display.h"
 #include "mi_disp_print.h"
+#include "mi_dsi_panel_count.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -7579,6 +7580,8 @@ int dsi_display_set_mode(struct dsi_display *display,
 	struct dsi_display_mode adj_mode;
 	struct dsi_mode_info timing;
 	struct disp_event event;
+	struct mi_disp_notifier notify_data;
+	int fps;
 
 	if (!display || !mode || !display->panel) {
 		DSI_ERR("Invalid params\n");
@@ -7628,7 +7631,13 @@ int dsi_display_set_mode(struct dsi_display *display,
 	mi_disp_feature_event_notify(&event, (u8 *)&timing.refresh_rate);
 
 	if (display->panel->cur_mode->timing.refresh_rate != timing.refresh_rate) {
+		fps = timing.refresh_rate;
+		notify_data.data = &fps;
+		notify_data.disp_id = mi_get_disp_id(display);
+		mi_disp_notifier_call_chain(MI_DISP_FPS_CHANGE_EVENT, &notify_data);
 		mi_disp_feature_sysfs_notify(event.disp_id, MI_SYSFS_DYNAMIC_FPS);
+		if (display->panel->mi_count.panel_active_count_enable)
+			mi_dsi_panel_fps_count_lock(display->panel, timing.refresh_rate, 1);
 	}
 
 	memcpy(display->panel->cur_mode, &adj_mode, sizeof(adj_mode));
@@ -8480,11 +8489,26 @@ int dsi_display_enable(struct dsi_display *display)
 			mi_dsi_panel_lhbm_set(display->panel);
 		}
 
-		rc = mi_dsi_panel_read_and_update_flatmode_param(display->panel);
-		if (rc) {
-			DSI_ERR("[%s] failed to read flatmode param, rc=%d\n",
-				display->name, rc);
+		if (display->panel->mi_cfg.panel_id == 0x4C3900420200){
+			rc = mi_dsi_panel_update_vdc_param(display->panel);
+			if (rc) {
+				DSI_ERR("[%s] failed to update vdc_enabled param, rc=%d\n",
+					display->name, rc);
+			}
+		} else if (display->panel->mi_cfg.panel_id == 0x4C3900360200){
+			DSI_ERR("[%s] Not need to update flatmode parameter\n",display->name);
+		} else{
+			rc = mi_dsi_panel_read_and_update_flatmode_param(display->panel);
+			if (rc) {
+				DSI_ERR("[%s] failed to read flatmode param, rc=%d\n",
+					display->name, rc);
+			}
 		}
+
+		rc = dsi_panel_switch(display->panel);
+		if (rc)
+			DSI_ERR("[%s] failed to switch DSI panel mode, rc=%d\n",
+				   display->name, rc);
 
 		rc = mi_dsi_panel_read_and_update_dc_param(display->panel);
 		if (rc) {
@@ -8498,6 +8522,7 @@ int dsi_display_enable(struct dsi_display *display)
 				DSI_ERR("[%s] failed to read lhbm rgb param, rc=%d\n",
 					display->name, rc);
 		}
+
 		return 0;
 	}
 

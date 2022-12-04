@@ -20,6 +20,7 @@
 #include "mi_dsi_display.h"
 #include "mi_dsi_panel.h"
 #include "mi_disp_feature.h"
+#include "mi_dsi_panel_count.h"
 
 static char oled_wp_info_str[32] = {0};
 static char sec_oled_wp_info_str[32] = {0};
@@ -402,6 +403,7 @@ int mi_dsi_display_set_brightness_clone(void *display,
 	struct dsi_display *dsi_display = (struct dsi_display *)display;
 	int ret = 0;
 	struct disp_event event;
+	struct disp_feature_ctl ctl;
 
 	if (!dsi_display) {
 		DISP_ERROR("Invalid display ptr\n");
@@ -409,9 +411,21 @@ int mi_dsi_display_set_brightness_clone(void *display,
 	}
 
 	dsi_display->panel->mi_cfg.real_brightness_clone = brightness_clone;
-	if (!dsi_display->panel->mi_cfg.thermal_dimming)
-		if (brightness_clone > dsi_display->panel->mi_cfg.thermal_max_brightness_clone)
-			brightness_clone = dsi_display->panel->mi_cfg.thermal_max_brightness_clone;
+	if (!dsi_display->panel->mi_cfg.thermal_dimming) {
+		if (dsi_display->panel->mi_cfg.is_step_hbm) {
+			if (dsi_display->panel->mi_cfg.thermal_max_brightness_clone < 2046) {
+				if (brightness_clone > dsi_display->panel->mi_cfg.thermal_max_brightness_clone)
+					brightness_clone = dsi_display->panel->mi_cfg.thermal_max_brightness_clone;
+			} else if (dsi_display->panel->mi_cfg.thermal_max_brightness_clone == 2046) {
+				ctl.feature_id = DISP_FEATURE_HBM;
+				ctl.feature_val = FEATURE_OFF;
+				ret = mi_dsi_display_set_disp_param(dsi_display, &ctl);
+			}
+		} else {
+			if (brightness_clone > dsi_display->panel->mi_cfg.thermal_max_brightness_clone)
+				brightness_clone = dsi_display->panel->mi_cfg.thermal_max_brightness_clone;
+		}
+	}
 
 	ret = mi_dsi_panel_set_brightness_clone(dsi_display->panel,
 				brightness_clone);
@@ -444,6 +458,31 @@ ssize_t mi_dsi_display_get_hw_vsync_info(void *display,
 	struct dsi_display *dsi_display = (struct dsi_display *)display;
 
 	return mi_sde_encoder_calc_hw_vsync_info(dsi_display, buf, size);
+}
+
+int mi_dsi_display_set_disp_count(void *display, char *buf)
+{
+	struct dsi_display *dsi_display = (struct dsi_display *)display;
+
+	if (!dsi_display) {
+		DISP_ERROR("Invalid display ptr\n");
+		return -EINVAL;
+	}
+
+	return mi_dsi_panel_set_disp_count(dsi_display->panel, buf);
+}
+
+int mi_dsi_display_get_disp_count(void *display,
+			char *buf, size_t size )
+{
+	struct dsi_display *dsi_display = (struct dsi_display *)display;
+
+	if (!dsi_display) {
+		DISP_ERROR("Invalid display ptr\n");
+		return -EINVAL;
+	}
+
+	return mi_dsi_panel_get_disp_count(dsi_display->panel, buf, size);
 }
 
 int mi_dsi_display_esd_irq_ctrl(struct dsi_display *display,

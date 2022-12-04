@@ -21,6 +21,7 @@
 #include "dsi_parser.h"
 #include "msm_drv.h"
 #include "mi_dsi_panel.h"
+#include "mi_dsi_panel_count.h"
 
 #define MAX_BL_LEVEL 4096
 #define MAX_BL_SCALE_LEVEL 1024
@@ -267,6 +268,7 @@ struct dsi_panel {
 	int power_mode;
 	enum dsi_panel_physical_type panel_type;
 	struct mi_dsi_panel_cfg mi_cfg;
+	struct mi_dsi_panel_count mi_count;
 
 	struct dsi_tlmm_gpio *tlmm_gpio;
 	u32 tlmm_gpio_count;

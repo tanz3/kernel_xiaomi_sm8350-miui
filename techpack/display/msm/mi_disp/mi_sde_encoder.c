@@ -117,7 +117,7 @@ ssize_t mi_sde_encoder_calc_hw_vsync_info(struct dsi_display *display,
 	/* Multiplying with 1000 to get fps in floating point */
 	calc_vsync->measured_fps_x1000 =
 			(u32)((NSEC_PER_SEC * 1000) / calc_vsync->measured_vsync_period_ns);
-	DISP_INFO("[hw_vsync_info]fps: %d.%d, vsync_period_ns:%lld,"
+	DISP_DEBUG("[hw_vsync_info]fps: %d.%d, vsync_period_ns:%lld,"
 			" panel_mode:%s, panel_type:%s, average of %d statistics\n",
 			calc_vsync->measured_fps_x1000 / 1000,
 			calc_vsync->measured_fps_x1000 % 1000,
@@ -133,4 +133,25 @@ ssize_t mi_sde_encoder_calc_hw_vsync_info(struct dsi_display *display,
 			calc_vsync->measured_vsync_period_ns,
 			(display->panel->panel_mode == DSI_OP_VIDEO_MODE) ? "dsi_video" : "dsi_cmd",
 			display->panel->type);
+}
+
+void mi_sde_encoder_calc_fps(struct drm_encoder *encoder)
+{
+	struct dsi_display *display = NULL;
+
+	if (sde_encoder_is_primary_display(encoder)) {
+		display = mi_get_primary_dsi_display();
+		if (display) {
+			display->panel->mi_count.kickoff_count++;
+		} else {
+			return;
+		}
+	} else {
+		display = mi_get_secondary_dsi_display();
+		if (display) {
+			display->panel->mi_count.kickoff_count++;
+		} else {
+			return;
+		}
+	}
 }
