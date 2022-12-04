@@ -194,13 +194,20 @@ static int sde_backlight_cooling_cb(struct notifier_block *nb,
 					unsigned long val, void *data)
 {
 	struct sde_connector *c_conn;
+	struct dsi_display *display;
 	struct backlight_device *bd = (struct backlight_device *)data;
 
 	c_conn = bl_get_data(bd);
 	SDE_DEBUG("bl: thermal max brightness cap:%lu\n", val);
 	c_conn->thermal_max_brightness = val;
 
-	sde_backlight_device_update_status(bd);
+	display = (struct dsi_display *) c_conn->display;
+
+	if (display->panel->mi_cfg.is_step_hbm) {
+		display->panel->mi_cfg.thermal_max_brightness_clone = val;
+		mi_dsi_display_set_brightness_clone(c_conn->display, display->panel->mi_cfg.real_brightness_clone);
+	} else
+		sde_backlight_device_update_status(bd);
 	return 0;
 }
 
@@ -914,6 +921,8 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	SDE_EVT32_VERBOSE(connector->base.id);
 
 	mi_sde_connector_gir_fence(connector);
+
+	mi_sde_connector_dc_fence(connector);
 
 	mi_sde_connector_fod_hbm_fence(connector);
 

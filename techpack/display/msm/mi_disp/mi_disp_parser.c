@@ -18,6 +18,7 @@
 
 #define SMEM_SW_DISPLAY_DEMURA_TABLE 498
 #define SMEM_SW_DISPLAY_LHBM_TABLE 499
+#define SMEM_SW_DISPLAY_VDC_TABLE 500
 
 #define DEFAULT_HBM_BL_MIN_LEVEL 1
 #define DEFAULT_HBM_BL_MAX_LEVEL 2047
@@ -175,12 +176,84 @@ static int mi_dsi_panel_parse_local_hbm_config(struct dsi_panel *panel)
 			DISP_INFO("mi,local-hbm-hlpm-on-87-index is %d\n", mi_cfg->local_hbm_hlpm_on_87_index);
 		}
 
-		rc = utils->read_u32(utils->data, "mi,panel-cup-dbi-reg-index", &mi_cfg->cup_dbi_reg_index);
+		rc = utils->read_u32(utils->data, "mi,doze-hbm-dbv-level", &mi_cfg->doze_hbm_dbv_level);
 		if (rc) {
-			mi_cfg->cup_dbi_reg_index = -1;
-			DISP_INFO("mi,panel-cup-dbi-reg-index not specified\n");
+			mi_cfg->doze_hbm_dbv_level = 0;
+			DISP_INFO("mi,doze-hbm-dbv-level not specified\n");
 		} else {
-			DISP_INFO("mi,panel-cup-dbi-reg-index is %d\n", mi_cfg->cup_dbi_reg_index);
+			DISP_INFO("mi,doze-hbm-dbv-level is %d\n", mi_cfg->doze_hbm_dbv_level);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,doze-lbm-dbv-level", &mi_cfg->doze_lbm_dbv_level);
+		if (rc) {
+			mi_cfg->doze_lbm_dbv_level = 0;
+			DISP_INFO("mi,doze-lbm-dbv-level not specified\n");
+		} else {
+			DISP_INFO("mi,doze-lbm-dbv-level is %d\n", mi_cfg->doze_lbm_dbv_level);
+		}
+	} else {
+		DISP_DEBUG("mi,local-hbm-enabled not defined\n");
+	}
+
+	return rc;
+}
+
+static int mi_dsi_panel_parse_lhbm_config(struct dsi_panel *panel)
+{
+	int rc = 0;
+	struct dsi_parser_utils *utils = &panel->utils;
+	struct mi_dsi_panel_cfg *mi_cfg = &panel->mi_cfg;
+
+	mi_cfg->local_hbm_enabled = utils->read_bool(utils->data, "mi,local-hbm-enabled");
+	if (mi_cfg->local_hbm_enabled) {
+		DISP_INFO("local_hbm_enabled\n");
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-off-to-hbm-51-index", &mi_cfg->local_hbm_off_to_hbm_51_index);
+		if (rc) {
+			mi_cfg->local_hbm_off_to_hbm_51_index = -1;
+			DISP_INFO("mi,local-hbm-off-to-hbm-51-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-off-to-hbm-51-index is %d\n", mi_cfg->local_hbm_off_to_hbm_51_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-off-to-normal-51-index", &mi_cfg->local_hbm_off_to_normal_51_index);
+		if (rc) {
+			mi_cfg->local_hbm_off_to_normal_51_index = -1;
+			DISP_INFO("mi,local-hbm-off-to-normal-51-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-off-to-normal-51-index is %d\n", mi_cfg->local_hbm_off_to_normal_51_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-normal-alpha-87-index", &mi_cfg->local_hbm_normal_alpha_87_index);
+		if (rc) {
+			mi_cfg->local_hbm_normal_alpha_87_index = -1;
+			DISP_INFO("mi,local-hbm-normal-alpha-87-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-normal-alpha-87-index is %d\n", mi_cfg->local_hbm_normal_alpha_87_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-hlpm-alpha-87-index", &mi_cfg->local_hbm_hlpm_alpha_87_index);
+		if (rc) {
+			mi_cfg->local_hbm_hlpm_alpha_87_index = -1;
+			DISP_INFO("mi,local-hbm-hlpm-alpha-87-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-hlpm-alpha-87-index is %d\n", mi_cfg->local_hbm_hlpm_alpha_87_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-on-87-index", &mi_cfg->local_hbm_on_87_index);
+		if (rc) {
+			mi_cfg->local_hbm_on_87_index = -1;
+			DISP_INFO("mi,local-hbm-on-87-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-on-87-index is %d\n", mi_cfg->local_hbm_on_87_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-hlpm-on-87-index", &mi_cfg->local_hbm_hlpm_on_87_index);
+		if (rc) {
+			mi_cfg->local_hbm_hlpm_on_87_index = -1;
+			DISP_INFO("mi,local-hbm-hlpm-on-87-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-hlpm-on-87-index is %d\n", mi_cfg->local_hbm_hlpm_on_87_index);
 		}
 
 		rc = utils->read_u32(utils->data, "mi,doze-hbm-dbv-level", &mi_cfg->doze_hbm_dbv_level);
@@ -251,50 +324,136 @@ static int mi_dsi_panel_parse_dc_config(struct dsi_panel *panel)
 		DISP_INFO("dc backlight type %d \n", mi_cfg->dc_threshold);
 	}
 
+	mi_cfg->dc_sync_te_flag = utils->read_bool(utils->data, "mi,dc-sync-te-flag");
+	if (mi_cfg->dc_sync_te_flag) {
+		DISP_INFO("dc_sync_te_flag: %d dc need sync te\n", mi_cfg->dc_sync_te_flag);
+	} else {
+		DISP_INFO("dc_sync_te_flag: %d dc do not need sync te\n", mi_cfg->dc_sync_te_flag);
+	}
+
 	mi_cfg->dc_update_flag = utils->read_bool(utils->data, "mi,dc-update-flag");
 	if (mi_cfg->dc_update_flag) {
 		DISP_INFO("mi,dc-update-flag is defined\n");
-		rc = utils->read_u32(utils->data, "mi,dc-on-60hz-d2-index",
+
+		rc = utils->read_u32(utils->data, "mi,dc-gain-type",
 				&index);
 		if (rc) {
-			mi_cfg->dc_cfg.dc_on_index[DC_LUT_60HZ] = -1;
-			DISP_ERROR("failed to parse mi,dc-on-60hz-d2-index config\n");
+			mi_cfg->dc_cfg.dc_gain_type = -1;
+			DISP_ERROR("failed to parse mi,dc-gain-type config\n");
 		} else {
-			mi_cfg->dc_cfg.dc_on_index[DC_LUT_60HZ] = index;
-			DISP_INFO("mi,dc-on-60hz-d2-index is %d\n", index);
+			mi_cfg->dc_cfg.dc_gain_type = index;
+			DISP_INFO("mi,dc-gain-type is %d\n", index);
 		}
-		rc = utils->read_u32(utils->data, "mi,dc-off-60hz-d2-index",
+		if (mi_cfg->dc_cfg.dc_gain_type == 1)
+		{
+			rc = utils->read_u32(utils->data, "mi,dc-on-60hz-d4-index",
 				&index);
-		if (rc) {
-			mi_cfg->dc_cfg.dc_off_index[DC_LUT_60HZ] = -1;
-			DISP_ERROR("failed to parse mi,dc-on-60hz-d2-index config\n");
+			if (rc) {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_60HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-on-60hz-d4-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_60HZ] = index;
+				DISP_INFO("mi,dc-on-60hz-d4-index is %d\n", index);
+			}
+			rc = utils->read_u32(utils->data, "mi,dc-off-60hz-d4-index",
+					&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_60HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-on-60hz-d4-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_60HZ] = index;
+				DISP_INFO("mi,dc-on-60hz-d4-index is %d\n", index);
+			}
+
+			rc = utils->read_u32(utils->data, "mi,dc-on-120hz-d2-index",
+					&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_120HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-on-120hz-d2-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_120HZ] = index;
+				DISP_INFO("mi,dc-on-120hz-d2-index is %d\n", index);
+			}
+			rc = utils->read_u32(utils->data, "mi,dc-off-120hz-d2-index",
+					&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_120HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-off-120hz-d2-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_120HZ] = index;
+				DISP_INFO("mi,dc-off-120hz-d2-index is %d\n", index);
+			}
 		} else {
-			mi_cfg->dc_cfg.dc_off_index[DC_LUT_60HZ] = index;
-			DISP_INFO("mi,dc-on-60hz-d2-index is %d\n", index);
+			rc = utils->read_u32(utils->data, "mi,dc-on-60hz-d2-index",
+				&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_60HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-on-60hz-d2-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_60HZ] = index;
+				DISP_INFO("mi,dc-on-60hz-d2-index is %d\n", index);
+			}
+			rc = utils->read_u32(utils->data, "mi,dc-off-60hz-d2-index",
+					&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_60HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-on-60hz-d2-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_60HZ] = index;
+				DISP_INFO("mi,dc-on-60hz-d2-index is %d\n", index);
+			}
+
+			rc = utils->read_u32(utils->data, "mi,dc-on-120hz-d4-index",
+					&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_120HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-on-120hz-d4-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_on_index[DC_LUT_120HZ] = index;
+				DISP_INFO("mi,dc-on-120hz-d4-index is %d\n", index);
+			}
+			rc = utils->read_u32(utils->data, "mi,dc-off-120hz-d4-index",
+					&index);
+			if (rc) {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_120HZ] = -1;
+				DISP_ERROR("failed to parse mi,dc-off-120hz-d4-index config\n");
+			} else {
+				mi_cfg->dc_cfg.dc_off_index[DC_LUT_120HZ] = index;
+				DISP_INFO("mi,dc-off-120hz-d4-index is %d\n", index);
+			}
 		}
 
-		rc = utils->read_u32(utils->data, "mi,dc-on-120hz-d4-index",
-				&index);
-		if (rc) {
-			mi_cfg->dc_cfg.dc_on_index[DC_LUT_120HZ] = -1;
-			DISP_ERROR("failed to parse mi,dc-on-120hz-d4-index config\n");
-		} else {
-			mi_cfg->dc_cfg.dc_on_index[DC_LUT_120HZ] = index;
-			DISP_INFO("mi,dc-on-120hz-d4-index is %d\n", index);
-		}
-		rc = utils->read_u32(utils->data, "mi,dc-off-120hz-d4-index",
-				&index);
-		if (rc) {
-			mi_cfg->dc_cfg.dc_off_index[DC_LUT_120HZ] = -1;
-			DISP_ERROR("failed to parse mi,dc-off-120hz-d4-index config\n");
-		} else {
-			mi_cfg->dc_cfg.dc_off_index[DC_LUT_120HZ] = index;
-			DISP_INFO("mi,dc-off-120hz-d4-index is %d\n", index);
-		}
 	} else {
 		DISP_DEBUG("mi,dc-update-flag not defined\n");
 	}
 
+	return rc;
+}
+
+static int mi_dsi_panel_parse_vdc_config(struct dsi_panel *panel)
+{
+	int rc = 0;
+	struct dsi_parser_utils *utils = &panel->utils;
+	struct mi_dsi_panel_cfg *mi_cfg = &panel->mi_cfg;
+
+	mi_cfg->update_vdc_param_enabled = utils->read_bool(utils->data, "mi,update-vdc-param-enabled");
+	if(mi_cfg->update_vdc_param_enabled){
+		rc = utils->read_u32(utils->data, "mi,dsi-on-e9-index", &mi_cfg->dsi_on_e9_index);
+		if (rc) {
+			mi_cfg->dsi_on_e9_index = -1;
+			DISP_INFO("mi,dsi-on-e9-index not specified\n");
+		} else {
+			DISP_INFO("mi,dsi-on-e9-index is %d\n", mi_cfg->dsi_on_e9_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,dsi-on-b9-index", &mi_cfg->dsi_on_b9_index);
+		if (rc) {
+			mi_cfg->dsi_on_b9_index = -1;
+			DISP_INFO("mi,dsi-on-b9-index not specified\n");
+		} else {
+			DISP_INFO("mi,dsi-on-b9-index is %d\n", mi_cfg->dsi_on_b9_index);
+		}
+	}
 	return rc;
 }
 
@@ -306,7 +465,10 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 	size_t item_size;
 	void * demura_ptr = NULL;
 	void *lhbm_ptr = NULL;
+	void *vdc_ptr = NULL;
 	mi_cfg->dsi_panel = panel;
+	mi_cfg->bl_wait_frame = false;
+	mi_cfg->bl_enable = true;
 
 	mi_cfg->bl_is_big_endian= utils->read_bool(utils->data,
 			"mi,mdss-dsi-bl-dcs-big-endian-type");
@@ -324,19 +486,38 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 				memcpy(mi_cfg->demura_data, demura_ptr, item_size);
 			}
 		}
-		if (mi_cfg->panel_id == 0x4B394200420200) {
+		if (mi_cfg->panel_id == 0x4B394200420200 || mi_cfg->panel_id == 0x4B394500420200) {
 			lhbm_ptr = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_SW_DISPLAY_LHBM_TABLE, &item_size);
 			if (!IS_ERR(lhbm_ptr) && item_size > 0) {
 				DSI_INFO("lhbm data size %d\n", item_size);
 				memcpy(mi_cfg->lhbm_cfg.lhbm_rgb_param, lhbm_ptr, item_size);
 			}
 		}
+		if (mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200) {
+			lhbm_ptr = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_SW_DISPLAY_LHBM_TABLE, &item_size);
+			if (!IS_ERR(lhbm_ptr) && item_size > 0) {
+				DSI_INFO("lhbm data size %d\n", item_size);
+				memcpy(mi_cfg->lhbm_cfg.lhbm_rgb_param, lhbm_ptr, item_size);
+			}
+		}
+		if (mi_cfg->panel_id == 0x4C3900420200) {
+			vdc_ptr = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_SW_DISPLAY_VDC_TABLE, &item_size);
+			if (!IS_ERR(vdc_ptr) && item_size > 0) {
+				DSI_INFO("vdc data size %d\n", item_size);
+				memcpy(mi_cfg->vdc_cfg.vdc_param, vdc_ptr, item_size);
+			}
+		}
 	}
 
 	mi_dsi_panel_parse_hbm_51_ctl_config(panel);
-	mi_dsi_panel_parse_local_hbm_config(panel);
-	mi_dsi_panel_parse_flatmode_config(panel);
 	mi_dsi_panel_parse_dc_config(panel);
+	if(mi_cfg->panel_id == 0x4C3900420200 || mi_cfg->panel_id == 0x4C3900360200){
+		mi_dsi_panel_parse_lhbm_config(panel);
+		mi_dsi_panel_parse_vdc_config(panel);
+	} else {
+		mi_dsi_panel_parse_local_hbm_config(panel);
+		mi_dsi_panel_parse_flatmode_config(panel);
+	}
 
 	rc = utils->read_u32(utils->data, "mi,panel-on-dimming-delay", &mi_cfg->panel_on_dimming_delay);
 	if (rc) {
@@ -401,6 +582,83 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 		DISP_INFO("mi,aod-lbm-51-index is %d\n", mi_cfg->aod_lbm_51_index);
 	}
 
+	rc = utils->read_u32(utils->data, "mi,mdss-dsi-panel-dc-threshold", &mi_cfg->dc_threshold);
+	if (rc) {
+		DISP_INFO("default dc backlight type is %d\n", mi_cfg->dc_threshold);
+	} else {
+		DISP_INFO("dc backlight type %d \n", mi_cfg->dc_threshold);
+	}
+
+	mi_cfg->local_hbm_enabled = utils->read_bool(utils->data, "mi,local-hbm-enabled");
+	if (mi_cfg->local_hbm_enabled) {
+		DISP_INFO("local_hbm_enabled\n");
+	}
+	if (mi_cfg->local_hbm_enabled) {
+		rc = utils->read_u32(utils->data, "mi,local-hbm-on-1000nit-51-index", &mi_cfg->local_hbm_on_1000nit_51_index);
+		if (rc) {
+			mi_cfg->local_hbm_on_1000nit_51_index = -1;
+			DISP_INFO("mi,local-hbm-on-1000nit-51-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-on-1000nit-51-index is %d\n", mi_cfg->local_hbm_on_1000nit_51_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-off-to-hbm-51-index", &mi_cfg->local_hbm_off_to_hbm_51_index);
+		if (rc) {
+			mi_cfg->local_hbm_off_to_hbm_51_index = -1;
+			DISP_INFO("mi,local-hbm-off-to-hbm-51-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-off-to-hbm-51-index is %d\n", mi_cfg->local_hbm_off_to_hbm_51_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-off-to-normal-51-index", &mi_cfg->local_hbm_off_to_hbm_51_index);
+		if (rc) {
+			mi_cfg->local_hbm_off_to_hbm_51_index = -1;
+			DISP_INFO("mi,local-hbm-off-to-normal-51-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-off-to-normal-51-index is %d\n", mi_cfg->local_hbm_off_to_hbm_51_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-on-87-index", &mi_cfg->local_hbm_on_87_index);
+		if (rc) {
+			mi_cfg->local_hbm_on_87_index = -1;
+			DISP_INFO("mi,local-hbm-on-87-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-on-87-index is %d\n", mi_cfg->local_hbm_on_87_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,local-hbm-hlpm-on-87-index", &mi_cfg->local_hbm_hlpm_on_87_index);
+		if (rc) {
+			mi_cfg->local_hbm_hlpm_on_87_index = -1;
+			DISP_INFO("mi,local-hbm-hlpm-on-87-index not specified\n");
+		} else {
+			DISP_INFO("mi,local-hbm-hlpm-on-87-index is %d\n", mi_cfg->local_hbm_hlpm_on_87_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,panel-cup-dbi-reg-index", &mi_cfg->cup_dbi_reg_index);
+		if (rc) {
+			mi_cfg->cup_dbi_reg_index = -1;
+			DISP_INFO("mi,panel-cup-dbi-reg-index not specified\n");
+		} else {
+			DISP_INFO("mi,panel-cup-dbi-reg-index is %d\n", mi_cfg->cup_dbi_reg_index);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,doze-hbm-dbv-level", &mi_cfg->doze_hbm_dbv_level);
+		if (rc) {
+			mi_cfg->doze_hbm_dbv_level = 0;
+			DISP_INFO("mi,doze-hbm-dbv-level not specified\n");
+		} else {
+			DISP_INFO("mi,doze-hbm-dbv-level is %d\n", mi_cfg->doze_hbm_dbv_level);
+		}
+
+		rc = utils->read_u32(utils->data, "mi,doze-lbm-dbv-level", &mi_cfg->doze_lbm_dbv_level);
+		if (rc) {
+			mi_cfg->doze_lbm_dbv_level = 0;
+			DISP_INFO("mi,doze-lbm-dbv-level not specified\n");
+		} else {
+			DISP_INFO("mi,doze-lbm-dbv-level is %d\n", mi_cfg->doze_lbm_dbv_level);
+		}
+	}
+
 	mi_cfg->fp_display_on_optimize = utils->read_bool(utils->data, "mi,fp-display-on-optimize-flag");
 	if (mi_cfg->fp_display_on_optimize) {
 		DISP_INFO("fp_display_on_optimize enabled\n");
@@ -410,6 +668,10 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 	if (mi_cfg->thermal_dimming) {
 		DISP_INFO("thermal_dimming enabled\n");
 	}
+
+	mi_cfg->is_step_hbm = utils->read_bool(utils->data, "mi,step-hbm-flag");
+	if (mi_cfg->is_step_hbm)
+		DISP_INFO("step hbm is true\n");
 
 	rc = utils->read_u32(utils->data, "mi,fod-low-brightness-clone-threshold", &mi_cfg->fod_low_brightness_clone_threshold);
 	if (rc) {
@@ -449,6 +711,19 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 				DISP_INFO("demura dbv configure\n");
 		}
 	}
+
+	mi_cfg->nolp_set_backlight_enable = utils->read_bool(utils->data, "mi,mdss-dsi-panel-bl-nolp-enable");
+	if (mi_cfg->nolp_set_backlight_enable) {
+		pr_info("nolp command set backlight enabled.\n");
+		rc = utils->read_u32(utils->data, "mi,mdss-dsi-panel-bl-nolp-index", &mi_cfg->nolp_bl_index);
+		if (rc) {
+			mi_cfg->nolp_bl_index = 0;
+			pr_info("read nolp_bl_index failed\n");
+		}
+	} else {
+		pr_info("nolp command set backlight disabled.\n");
+	}
+
 	rc = utils->read_u32(utils->data, "mi,max-brightness-clone", &mi_cfg->max_brightness_clone);
 	if (rc) {
 		mi_cfg->max_brightness_clone = DEFAULT_MAX_BRIGHTNESS_CLONE;
@@ -466,11 +741,11 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 		mi_cfg->hbm_backlight_threshold = 8192;
 	DISP_INFO("panel hbm backlight threshold %d\n", mi_cfg->hbm_backlight_threshold);
 
-	mi_cfg->doze_to_off_command_enabled = utils->read_bool(utils->data,
-			"mi,panel-aod-to-off-command-need-enabled");
-	if (mi_cfg->doze_to_off_command_enabled) {
-		DISP_INFO("mi,panel-aod-to-off-command-need-enabled\n");
-	}
+	mi_cfg->count_hbm_by_backlight = utils->read_bool(utils->data, "mi,panel-count-hbm-by-backlight-flag");
+	if (mi_cfg->count_hbm_by_backlight)
+		DISP_INFO("panel count hbm by backlight\n");
+	rc = mi_dsi_panel_parse_flatmode_config(panel);
+
 
 	mi_cfg->bl_51ctl_32bit = utils->read_bool(utils->data, "mi,bl-51ctl-32bit-flag");
 	rc = utils->read_u32_array(utils->data,
@@ -482,6 +757,11 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 			"mi,lhbm-update-flag");
 	if (mi_cfg->lhbm_update_flag) {
 		DISP_INFO("mi,lhbm-update-flag\n");
+	}
+	mi_cfg->doze_to_off_command_enabled = utils->read_bool(utils->data,
+			"mi,panel-aod-to-off-command-need-enabled");
+	if (mi_cfg->doze_to_off_command_enabled) {
+		DISP_INFO("mi,panel-aod-to-off-command-need-enabled\n");
 	}
 
 	return rc;
