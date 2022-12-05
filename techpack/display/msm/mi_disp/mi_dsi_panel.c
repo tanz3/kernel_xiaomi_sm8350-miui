@@ -64,9 +64,6 @@ int mi_dsi_panel_init(struct dsi_panel *panel)
 		DISP_ERROR("invalid params\n");
 		return -EINVAL;
 	}
-	/* Solve the problem of forced power-off flash highlighting for k9e */
-	if(panel->mi_cfg.panel_id == 0x4B394500420200)
-		mi_display_pm_suspend_callback_set(mi_display_pm_suspend);
 
 	mi_cfg = &panel->mi_cfg;
 	mi_dsi_panel_count_init(panel);
