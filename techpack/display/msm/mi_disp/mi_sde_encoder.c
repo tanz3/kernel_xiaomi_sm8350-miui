@@ -139,7 +139,7 @@ void mi_sde_encoder_calc_fps(struct drm_encoder *encoder)
 {
 	struct dsi_display *display = NULL;
 
-	if (sde_encoder_is_primary_display(encoder)) {
+	if (sde_encoder_get_display_type(encoder)) {
 		display = mi_get_primary_dsi_display();
 		if (display) {
 			DISP_DEBUG("display kickoff");
