@@ -94,6 +94,7 @@ struct sigma_dut;
 #define MAX_RADIO 3
 
 #define NAN_AWARE_IFACE "wifi-aware0"
+#define BROADCAST_ADDR "255.255.255.255"
 
 /* Set default operating channel width 80 MHz */
 #define VHT_DEFAULT_OPER_CHWIDTH AP_80_VHT_OPER_CHWIDTH
@@ -401,6 +402,7 @@ enum dpp_mdns_role {
 	DPP_MDNS_NOT_RUNNING,
 	DPP_MDNS_RELAY,
 	DPP_MDNS_CONTROLLER,
+	DPP_MDNS_BOOTSTRAPPING,
 };
 
 struct sigma_dut {
@@ -900,6 +902,7 @@ struct sigma_dut {
 		PROGRAM_HS2_R3,
 		PROGRAM_QM,
 		PROGRAM_HS2_R4,
+		PROGRAM_HS2_2022,
 	} program;
 
 	enum device_type {
@@ -1220,6 +1223,8 @@ void get_ver(const char *cmd, char *buf, size_t buflen);
 
 /* utils.c */
 enum sigma_program sigma_program_to_enum(const char *prog);
+bool is_passpoint_r2_or_newer(enum sigma_program prog);
+bool is_passpoint(enum sigma_program prog);
 int hex_byte(const char *str);
 int parse_hexstr(const char *hex, unsigned char *buf, size_t buflen);
 int parse_mac_address(struct sigma_dut *dut, const char *arg,
@@ -1325,5 +1330,6 @@ void miracast_register_cmds(void);
 int set_ipv6_addr(struct sigma_dut *dut, const char *ip, const char *mask,
 		  const char *ifname);
 void kill_pid(struct sigma_dut *dut, const char *pid_file);
+int get_ip_addr(const char *ifname, int ipv6, char *buf, size_t len);
 
 #endif /* SIGMA_DUT_H */

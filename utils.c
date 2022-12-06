@@ -141,6 +141,8 @@ enum sigma_program sigma_program_to_enum(const char *prog)
 		return PROGRAM_HS2_R2;
 	if (strcasecmp(prog, "HS2-R3") == 0)
 		return PROGRAM_HS2_R3;
+	if (strcasecmp(prog, "HS2-2022") == 0)
+		return PROGRAM_HS2_2022;
 	if (strcasecmp(prog, "HS2-R4") == 0)
 		return PROGRAM_HS2_R4;
 	if (strcasecmp(prog, "WFD") == 0)
@@ -177,6 +179,22 @@ enum sigma_program sigma_program_to_enum(const char *prog)
 		return PROGRAM_QM;
 
 	return PROGRAM_UNKNOWN;
+}
+
+
+bool is_passpoint_r2_or_newer(enum sigma_program prog)
+{
+	return prog == PROGRAM_HS2_R2 ||
+		prog == PROGRAM_HS2_R3 ||
+		prog == PROGRAM_HS2_2022 ||
+		prog == PROGRAM_HS2_R4;
+}
+
+
+bool is_passpoint(enum sigma_program prog)
+{
+	return prog == PROGRAM_HS2 ||
+		is_passpoint_r2_or_newer(prog);
 }
 
 

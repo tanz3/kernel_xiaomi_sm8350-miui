@@ -2615,6 +2615,30 @@ static int set_eap_common(struct sigma_dut *dut, struct sigma_conn *conn,
 		}
 	}
 
+	val = get_param(cmd, "imsiPrivacyCert");
+	if (val) {
+		snprintf(buf, sizeof(buf), "%s/%s", sigma_cert_path, val);
+#ifdef __linux__
+		if (!file_exists(buf)) {
+			char msg[300];
+
+			snprintf(msg, sizeof(msg),
+				 "ErrorCode,imsiPrivacyCert file (%s) not found",
+				 buf);
+			send_resp(dut, conn, SIGMA_ERROR, msg);
+			return STATUS_SENT_ERROR;
+		}
+#endif /* __linux__ */
+		if (set_network_quoted(ifname, id, "imsi_privacy_cert",
+				       buf) < 0)
+			return ERROR_SEND_STATUS;
+	}
+
+	val = get_param(cmd, "imsiPrivacyCertID");
+	if (val && set_network_quoted(ifname, id, "imsi_privacy_attr",
+				      val) < 0)
+		return ERROR_SEND_STATUS;
+
 	if (dut->akm_values &
 	    ((1 << AKM_FILS_SHA256) |
 	     (1 << AKM_FILS_SHA384) |
@@ -2661,6 +2685,7 @@ static enum sigma_cmd_result cmd_sta_set_eaptls(struct sigma_dut *dut,
 						struct sigma_conn *conn,
 						struct sigma_cmd *cmd)
 {
+	const char *type = get_param(cmd, "Type");
 	const char *intf = get_param(cmd, "Interface");
 	const char *ifname, *val;
 	int id;
@@ -2778,6 +2803,16 @@ static enum sigma_cmd_result cmd_sta_set_eaptls(struct sigma_dut *dut,
 				  "ErrorCode,Unsupported TLSCipher value");
 			return -3;
 		}
+	}
+
+	if (set_network(ifname, id, "ocsp", "1") < 0)
+		return ERROR_SEND_STATUS;
+
+	if (type && strcasecmp(type, "EAPTLS_1_3") == 0) {
+		sigma_dut_print(dut, DUT_MSG_INFO, "Enable only TLS v1.3");
+		if (set_network_quoted(ifname, id, "phase1",
+				       "tls_disable_tlsv1_0=1 tls_disable_tlsv1_1=1 tls_disable_tlsv1_2=1 tls_disable_tlsv1_3=0") < 0)
+			return ERROR_SEND_STATUS;
 	}
 
 	return 1;
@@ -3118,7 +3153,8 @@ static enum sigma_cmd_result cmd_sta_set_security(struct sigma_dut *dut,
 	    strcasecmp(type, "PSK-SAE") == 0 ||
 	    strcasecmp(type, "SAE") == 0)
 		return cmd_sta_set_psk(dut, conn, cmd);
-	if (strcasecmp(type, "EAPTLS") == 0)
+	if (strcasecmp(type, "EAPTLS") == 0 ||
+	    strcasecmp(type, "EAPTLS_1_3") == 0)
 		return cmd_sta_set_eaptls(dut, conn, cmd);
 	if (strcasecmp(type, "EAPTTLS") == 0)
 		return cmd_sta_set_eapttls(dut, conn, cmd);
@@ -9306,8 +9342,7 @@ static enum sigma_cmd_result cmd_sta_reset_default(struct sigma_dut *dut,
 	    lowi_cmd_sta_reset_default(dut, conn, cmd) < 0)
 		return ERROR_SEND_STATUS;
 
-	if (dut->program == PROGRAM_HS2_R2 || dut->program == PROGRAM_HS2_R3 ||
-	    dut->program == PROGRAM_HS2_R4) {
+	if (is_passpoint_r2_or_newer(dut->program)) {
 		unlink("SP/wi-fi.org/pps.xml");
 		if (system("rm -r SP/*") != 0) {
 		}
@@ -9409,15 +9444,12 @@ static enum sigma_cmd_result cmd_sta_reset_default(struct sigma_dut *dut,
 
 	set_ps(intf, dut, 0);
 
-	if (dut->program == PROGRAM_HS2 || dut->program == PROGRAM_HS2_R2 ||
-	    dut->program == PROGRAM_HS2_R3 || dut->program == PROGRAM_HS2_R4) {
+	if (is_passpoint(dut->program)) {
 		wpa_command(intf, "SET interworking 1");
 		wpa_command(intf, "SET hs20 1");
 	}
 
-	if (dut->program == PROGRAM_HS2_R2 ||
-	    dut->program == PROGRAM_HS2_R3 ||
-	    dut->program == PROGRAM_HS2_R4 ||
+	if (is_passpoint_r2_or_newer(dut->program) ||
 	    dut->program == PROGRAM_OCE) {
 		wpa_command(intf, "SET pmf 1");
 	} else {
@@ -9471,7 +9503,12 @@ static enum sigma_cmd_result cmd_sta_reset_default(struct sigma_dut *dut,
 	dut->dpp_local_bootstrap = -1;
 	wpa_command(intf, "SET dpp_config_processing 2");
 	wpa_command(intf, "SET dpp_mud_url ");
+	wpa_command(intf, "SET dpp_extra_conf_req_name ");
+	wpa_command(intf, "SET dpp_extra_conf_req_value ");
+	wpa_command(intf, "SET dpp_connector_privacy_default 0");
 	dpp_mdns_stop(dut);
+	unlink("/tmp/dpp-rest-server.uri");
+	unlink("/tmp/dpp-rest-server.id");
 
 	wpa_command(intf, "VENDOR_ELEM_REMOVE 13 *");
 
@@ -16176,8 +16213,7 @@ static int sta_add_credential_sim(struct sigma_dut *dut,
 		return 0;
 	}
 
-	if (dut->program == PROGRAM_HS2_R2 || dut->program == PROGRAM_HS2_R3 ||
-	    dut->program == PROGRAM_HS2_R4) {
+	if (is_passpoint_r2_or_newer(dut->program)) {
 		/*
 		 * Set provisioning_sp for the test cases where SIM/USIM
 		 * provisioning is used.

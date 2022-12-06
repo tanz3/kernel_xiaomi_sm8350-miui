@@ -8004,6 +8004,7 @@ enum sigma_cmd_result cmd_ap_config_commit(struct sigma_dut *dut,
 	enum driver_type drv;
 	const char *key_mgmt;
 	int conf_counter = 0;
+	bool append_vht = false;
 #ifdef ANDROID
 	struct group *gr;
 #endif /* ANDROID */
@@ -8031,6 +8032,13 @@ enum sigma_cmd_result cmd_ap_config_commit(struct sigma_dut *dut,
 	}
 
 	dut->mode = SIGMA_MODE_AP;
+
+	if (dut->ap_dpp_conf_addr &&
+	    strcasecmp(dut->ap_dpp_conf_addr, "mDNS") == 0 &&
+	    dpp_mdns_discover_relay_params(dut) < 0) {
+		sigma_dut_print(dut, DUT_MSG_INFO,
+				"Failed to discover DPP Controller for AP Relay using mDNS");
+	}
 
 	if (drv == DRIVER_ATHEROS)
 		return cmd_ath_ap_config_commit(dut, conn, cmd);
@@ -8815,9 +8823,14 @@ skip_key_mgmt:
 			fprintf(f, "fragment_size=128\n");
 	}
 
-	if (dut->ap_dpp_conf_addr && dut->ap_dpp_conf_pkhash)
-		fprintf(f, "dpp_controller=ipaddr=%s pkhash=%s\n",
-			dut->ap_dpp_conf_addr, dut->ap_dpp_conf_pkhash);
+	if (dut->ap_dpp_conf_addr && dut->ap_dpp_conf_pkhash) {
+		if (strcasecmp(dut->ap_dpp_conf_addr, "mDNS") != 0) {
+			fprintf(f, "dpp_controller=ipaddr=%s pkhash=%s\n",
+				dut->ap_dpp_conf_addr, dut->ap_dpp_conf_pkhash);
+			fprintf(f, "dpp_configurator_connectivity=1\n");
+		}
+		fprintf(f, "dpp_relay_port=8908\n");
+	}
 
 	if (dut->ap_he_rtsthrshld == VALUE_ENABLED)
 		fprintf(f, "he_rts_threshold=512\n");
@@ -8879,13 +8892,32 @@ skip_key_mgmt:
 					get_6g_ch_op_class(dut->ap_channel));
 		}
 
+		if (dut->use_5g) {
+			/* Do not try to enable VHT on the 2.4 GHz band when
+			 * configuring a dual band AP that does have VHT enabled
+			 * on the 5 GHz radio. */
+			if (dut->ap_is_dual) {
+				int chan;
+
+				if (conf_counter)
+					chan = dut->ap_tag_channel[0];
+				else
+					chan = dut->ap_channel;
+				append_vht = chan >= 36 && chan <= 171;
+			} else {
+				append_vht = true;
+			}
+		}
+
 		find_ap_ampdu_exp_and_max_mpdu_len(dut);
 
-		if (dut->ap_sgi80 || dut->ap_txBF ||
-		    dut->ap_ldpc != VALUE_NOT_SET ||
-		    dut->ap_tx_stbc == VALUE_ENABLED || dut->ap_mu_txBF ||
-		    dut->ap_ampdu_exp || dut->ap_max_mpdu_len ||
-		    dut->ap_chwidth == AP_160 || dut->ap_chwidth == AP_80_80) {
+		if (append_vht &&
+		    (dut->ap_sgi80 || dut->ap_txBF ||
+		     dut->ap_ldpc != VALUE_NOT_SET ||
+		     dut->ap_tx_stbc == VALUE_ENABLED || dut->ap_mu_txBF ||
+		     dut->ap_ampdu_exp || dut->ap_max_mpdu_len ||
+		     dut->ap_chwidth == AP_160 ||
+		     dut->ap_chwidth == AP_80_80)) {
 			fprintf(f, "vht_capab=%s%s%s%s%s%s",
 				dut->ap_sgi80 ? "[SHORT-GI-80]" : "",
 				dut->ap_txBF ?
@@ -9891,8 +9923,7 @@ static enum sigma_cmd_result cmd_ap_reset_default(struct sigma_dut *dut,
 
 	dut->ap_ocvc = dut->user_config_ap_ocvc;
 
-	if (dut->program == PROGRAM_HS2 || dut->program == PROGRAM_HS2_R2 ||
-	    dut->program == PROGRAM_HS2_R3 || dut->program == PROGRAM_HS2_R4 ||
+	if (is_passpoint(dut->program) ||
 	    dut->program == PROGRAM_IOTLP) {
 		int i;
 
@@ -9949,8 +9980,8 @@ static enum sigma_cmd_result cmd_ap_reset_default(struct sigma_dut *dut,
 		dut->ap_add_sha256 = 0;
 	}
 
-	if (dut->program == PROGRAM_HS2_R2 || dut->program == PROGRAM_HS2_R3 ||
-	     dut->program == PROGRAM_HS2_R4 || dut->program == PROGRAM_IOTLP) {
+	if (is_passpoint_r2_or_newer(dut->program) ||
+	    dut->program == PROGRAM_IOTLP) {
 		int i;
 		const char hessid[] = "50:6f:9a:00:11:22";
 
@@ -10202,6 +10233,8 @@ static enum sigma_cmd_result cmd_ap_reset_default(struct sigma_dut *dut,
 	dut->dpp_local_bootstrap = -1;
 	dut->ap_start_disabled = 0;
 	dpp_mdns_stop(dut);
+	unlink("/tmp/dpp-rest-server.uri");
+	unlink("/tmp/dpp-rest-server.id");
 
 	if (is_60g_sigma_dut(dut)) {
 		dut->ap_mode = AP_11ad;
@@ -11299,6 +11332,11 @@ enum sigma_cmd_result cmd_ap_send_frame(struct sigma_dut *dut,
 	if (val && (protected == INCORRECT_KEY ||
 		    (protected == UNPROTECTED && frame == SAQUERY)))
 		return ap_inject_frame(dut, conn, frame, protected, val);
+
+	if (!val && frame != CHANNEL_SWITCH) {
+		sigma_dut_print(dut, DUT_MSG_ERROR, "stationID not specified");
+		return INVALID_SEND_STATUS;
+	}
 
 	switch (frame) {
 	case DISASSOC:
