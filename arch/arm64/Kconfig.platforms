@@ -494,6 +494,12 @@ config MACH_XIAOMI_REDWOOD
 	help
 	  This enables support for Redmi Note 12 Pro Speed.
 
+config USE_COMMON_CAMERA
+	bool "Use common camera driver"
+	depends on MACH_XIAOMI
+	help
+	  This enables use common camera driver.
+
 endif
 endmenu
 endmenu
