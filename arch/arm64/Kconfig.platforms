@@ -482,6 +482,12 @@ config MACH_XIAOMI_ZIJIN
 	help
 	  This enables support for Xiaomi Civi 1s.
 
+config USE_COMMON_CAMERA
+	bool "Use common camera driver"
+	depends on MACH_XIAOMI
+	help
+	  This enables use common camera driver.
+
 endif
 endmenu
 endmenu
