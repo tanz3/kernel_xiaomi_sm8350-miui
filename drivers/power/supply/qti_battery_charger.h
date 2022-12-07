@@ -55,6 +55,16 @@
 
 #define MAX_THERMAL_LEVEL		16
 
+#define ADAPTER_NONE              0x0
+#define ADAPTER_XIAOMI_QC3_20W    0x9
+#define ADAPTER_XIAOMI_PD_20W     0xa
+#define ADAPTER_XIAOMI_CAR_20W    0xb
+#define ADAPTER_XIAOMI_PD_30W     0xc
+#define ADAPTER_VOICE_BOX_30W     0xd
+#define ADAPTER_XIAOMI_PD_50W     0xe
+#define ADAPTER_XIAOMI_PD_60W     0xf
+#define ADAPTER_XIAOMI_PD_100W    0x10
+
 enum uvdm_state {
 	USBPD_UVDM_DISCONNECT,
 	USBPD_UVDM_CHARGER_VERSION,
