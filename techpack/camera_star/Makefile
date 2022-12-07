@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-ifdef CONFIG_MACH_XIAOMI_STAR
+ifneq ($(filter y, $(CONFIG_MACH_XIAOMI_CETUS) $(CONFIG_MACH_XIAOMI_STAR)),)
 # auto-detect subdirs
 ifneq ($(CONFIG_ARCH_QTI_VM), y)
 ifeq ($(CONFIG_ARCH_KONA), y)
