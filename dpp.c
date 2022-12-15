@@ -239,7 +239,7 @@ static int sigma_dut_is_ap(struct sigma_dut *dut)
 }
 
 
-static int dpp_hostapd_run(struct sigma_dut *dut)
+static int dpp_hostapd_run(struct sigma_dut *dut, bool chirp_chan)
 {
 	if (dut->hostapd_running)
 		return 0;
@@ -256,7 +256,7 @@ static int dpp_hostapd_run(struct sigma_dut *dut)
 			"Starting hostapd in unconfigured state for DPP");
 	snprintf(dut->ap_ssid, sizeof(dut->ap_ssid), "unconfigured");
 	if (!dut->ap_oper_chn)
-		dut->ap_channel = 11;
+		dut->ap_channel = chirp_chan ? 6 : 11;
 	dut->ap_is_dual = 0;
 	dut->ap_mode = dut->ap_channel <= 14 ? AP_11ng : AP_11na;
 	dut->ap_key_mgmt = AP_OPEN;
@@ -435,7 +435,7 @@ dpp_get_local_bootstrap(struct sigma_dut *dut, struct sigma_conn *conn,
 			pos++;
 	}
 
-	if (sigma_dut_is_ap(dut) && dpp_hostapd_run(dut) < 0) {
+	if (sigma_dut_is_ap(dut) && dpp_hostapd_run(dut, false) < 0) {
 		send_resp(dut, conn, SIGMA_ERROR,
 			  "errorCode,Failed to start hostapd");
 		return STATUS_SENT_ERROR;
@@ -699,11 +699,13 @@ static int dpp_hostapd_conf_update(struct sigma_dut *dut,
 	};
 	unsigned int old_timeout;
 	int legacy_akm, dpp_akm;
+	bool sae_akm, psk_akm;
 	char *connector = NULL, *psk = NULL, *csign = NULL,
 		*net_access_key = NULL;
 	char pass[64];
 	int pass_len = 0;
 	int ret = 0;
+	const char *cmd;
 
 	sigma_dut_print(dut, DUT_MSG_INFO,
 			"Update hostapd configuration based on DPP Config Object");
@@ -731,6 +733,8 @@ static int dpp_hostapd_conf_update(struct sigma_dut *dut,
 			"DPP: Config Object AKM: %s", pos);
 	legacy_akm = strstr(pos, "psk") != NULL || strstr(pos, "sae") != NULL;
 	dpp_akm = strstr(pos, "dpp") != NULL;
+	psk_akm = strstr(pos, "psk") != NULL;
+	sae_akm = strstr(pos, "sae") != NULL;
 
 	res = get_wpa_cli_event(dut, ctrl, "DPP-CONFOBJ-SSID",
 				buf, sizeof(buf));
@@ -827,15 +831,22 @@ static int dpp_hostapd_conf_update(struct sigma_dut *dut,
 		}
 	}
 
-	if ((!connector || !dpp_akm) &&
-	    wpa_command(ifname, "SET wpa_key_mgmt WPA-PSK") < 0) {
-		send_resp(dut, conn, SIGMA_ERROR,
-			  "errorCode,Failed to update AP security parameters");
-		goto out;
-	}
+	if ((!connector || !dpp_akm) && psk_akm && sae_akm)
+		cmd = "SET wpa_key_mgmt SAE WPA-PSK";
+	else if ((!connector || !dpp_akm) && sae_akm)
+		cmd = "SET wpa_key_mgmt SAE";
+	else if ((!connector || !dpp_akm) && psk_akm)
+		cmd = "SET wpa_key_mgmt WPA-PSK";
+	else if (connector && dpp_akm && legacy_akm && psk_akm && sae_akm)
+		cmd = "SET wpa_key_mgmt DPP SAE WPA-PSK";
+	else if (connector && dpp_akm && legacy_akm && sae_akm)
+		cmd = "SET wpa_key_mgmt DPP SAE";
+	else if (connector && dpp_akm && legacy_akm && psk_akm)
+		cmd = "SET wpa_key_mgmt DPP WPA-PSK";
+	else
+		cmd = "UNKNOWN";
 
-	if (connector && dpp_akm && legacy_akm &&
-	    wpa_command(ifname, "SET wpa_key_mgmt DPP WPA-PSK") < 0) {
+	if (wpa_command(ifname, cmd) < 0) {
 		send_resp(dut, conn, SIGMA_ERROR,
 			  "errorCode,Failed to update AP security parameters");
 		goto out;
@@ -1795,7 +1806,7 @@ static enum sigma_cmd_result dpp_automatic_dpp(struct sigma_dut *dut,
 		}
 		ifname = dut->hostapd_ifname;
 
-		if (dpp_hostapd_run(dut) < 0) {
+		if (dpp_hostapd_run(dut, pb) < 0) {
 			send_resp(dut, conn, SIGMA_ERROR,
 				  "errorCode,Failed to start hostapd");
 			return STATUS_SENT_ERROR;
@@ -3758,7 +3769,7 @@ dpp_reconfigure_configurator(struct sigma_dut *dut, struct sigma_conn *conn,
 		}
 	}
 
-	if (step) {
+	if (step && frametype) {
 		int test;
 
 		test = dpp_get_test(step, frametype, attr);
@@ -4193,7 +4204,7 @@ static enum sigma_cmd_result dpp_set_mdns_advertise(struct sigma_dut *dut,
 	} else if (strcasecmp(role, "Controller") == 0) {
 		const char *curve = dpp_get_curve(cmd, "DPPCryptoIdentifier");
 
-		if (sigma_dut_is_ap(dut) && dpp_hostapd_run(dut) < 0) {
+		if (sigma_dut_is_ap(dut) && dpp_hostapd_run(dut, false) < 0) {
 			send_resp(dut, conn, SIGMA_ERROR,
 				  "errorCode,Failed to start hostapd");
 			return STATUS_SENT_ERROR;
