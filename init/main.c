@@ -575,6 +575,9 @@ static void __init mm_init(void)
 	init_espfix_bsp();
 	/* Should be run after espfix64 is set up. */
 	pti_init();
+#ifdef CONFIG_EMERGENCY_MEMORY
+	emergency_mm_init();
+#endif
 }
 
 void __init __weak arch_call_rest_init(void)

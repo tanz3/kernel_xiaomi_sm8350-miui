@@ -343,6 +343,28 @@ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 
 include scripts/subarch.include
 
+# Make sure the kernel could be compiled successfully
+RTMM_FILE := $(abspath $(srctree))/drivers/staging/rtmm \
+		$(abspath $(srctree))/drivers/staging/ktrace \
+		$(abspath $(srctree))/include/linux/rtmm.h \
+		$(abspath $(srctree))/include/linux/ktrace.h
+
+LINK_DUM :=$(shell if [ -e $(abspath $(srctree))/../../miui/kernel/memory/rtmm ]; then \
+		rm -rf $(RTMM_FILE); \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/memory/rtmm/include/linux/rtmm.h $(abspath $(srctree))/include/linux/rtmm.h; \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/trace/ktrace/include/linux/ktrace.h $(abspath $(srctree))/include/linux/ktrace.h; \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/memory/rtmm $(abspath $(srctree))/drivers/staging/rtmm; \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/trace/ktrace $(abspath $(srctree))/drivers/staging/ktrace; else \
+		rm -rf $(RTMM_FILE); \
+		ln -s -f $(abspath $(srctree))/include/dum/rtmm.h $(abspath $(srctree))/include/linux/rtmm.h; \
+		ln -s -f $(abspath $(srctree))/include/dum/ktrace.h $(abspath $(srctree))/include/linux/ktrace.h; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/rtmm; \
+		ln -s -f $(abspath $(srctree))/drivers/staging/dum/Kconfig $(abspath $(srctree))/drivers/staging/rtmm/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/rtmm/Makefile; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/ktrace; \
+		ln -s -f $(abspath $(srctree))/drivers/staging/dum/Kconfig $(abspath $(srctree))/drivers/staging/ktrace/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/ktrace/Makefile; fi;)
+
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #
@@ -1319,6 +1341,8 @@ PHONY += archheaders archscripts
 hdr-inst := -f $(srctree)/scripts/Makefile.headersinst obj
 
 techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*")
+techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*" -not -name "camera-venus" -not -name "camera-odin" -not -name "camera-haydn" -not -name "camera-qcom" -not -name "camera-lisa" -not -name "camera-vili")
+techpack-dirs += $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type l -name camera)
 techpack-dirs := $(subst $(srctree)/,,$(techpack-dirs))
 
 PHONY += headers
