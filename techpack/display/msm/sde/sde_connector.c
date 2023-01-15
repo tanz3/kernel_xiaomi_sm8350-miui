@@ -1047,7 +1047,11 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 	mi_dsi_display_wakeup_pending_doze_work(display);
 
 	if (display->panel->mi_cfg.pending_lhbm_state) {
-		mi_disp_set_fod_queue_work(1, false);
+		if (display->panel->mi_cfg.lhbm_fod_touch_ctl_by_sf) {
+			mi_disp_set_local_hbm(mi_get_disp_id(display), display->panel->mi_cfg.pending_lhbm_state);
+		} else {
+			mi_disp_set_fod_queue_work(1, false);
+		}
 	}
 
 	if (!sde_in_trusted_vm(sde_kms) && c_conn->bl_device) {

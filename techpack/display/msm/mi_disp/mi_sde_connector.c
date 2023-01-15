@@ -19,14 +19,6 @@
 #include "mi_dsi_panel.h"
 #include "mi_dsi_display.h"
 
-enum local_hbm_target_brightness {
-	LOCAL_HBM_TARGET_BRIGHTNESS_NONE,
-	LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_1000NIT,
-	LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_110NIT,
-	LOCAL_HBM_TARGET_BRIGHTNESS_GREEN_500NIT,
-	LOCAL_HBM_TARGET_BRIGHTNESS_MAX
-};
-
 static irqreturn_t mi_esd_err_irq_handle(int irq, void *data)
 {
 	struct sde_connector *c_conn = (struct sde_connector *)data;
@@ -204,7 +196,7 @@ int mi_sde_connector_debugfs_esd_sw_trigger(void *display)
 	return 0;
 }
 
-int mi_sde_connector_panel_ctl(struct drm_connector *connector, uint32_t op_code)
+int mi_sde_connector_panel_ctl(struct drm_connector *connector, uint32_t op_code, bool is_lhbm_ioctl)
 {
 	int ret = 0;
 	struct sde_connector *c_conn = to_sde_connector(connector);
@@ -225,46 +217,40 @@ int mi_sde_connector_panel_ctl(struct drm_connector *connector, uint32_t op_code
 
 	mutex_lock(&dsi_display->panel->panel_lock);
 
-	switch (op_code) {
-	case MI_FOD_HBM_ON:
-		if (mi_cfg->local_hbm_enabled) {
-			ctl.feature_id = DISP_FEATURE_LOCAL_HBM;
-			if (mi_cfg->feature_val[DISP_FEATURE_FP_STATUS] == HEART_RATE_START) {
-				ctl.feature_val = LOCAL_HBM_NORMAL_GREEN_500NIT;
-				mi_cfg->local_hbm_target = LOCAL_HBM_TARGET_BRIGHTNESS_GREEN_500NIT;
-				break;
-			}
-			mi_cfg->local_hbm_target = mi_sde_get_fod_hbm_target_brightness(dsi_display);
-			if (mi_cfg->feature_val[DISP_FEATURE_FP_STATUS] == ENROLL_START)
-				mi_cfg->local_hbm_target = LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_1000NIT;
-
-			if (mi_cfg->local_hbm_target == LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_1000NIT) {
-				if (is_aod_and_panel_initialized(dsi_display->panel) && (!mi_cfg->fod_anim_layer_enabled ||
+	if (is_lhbm_ioctl) {
+		ctl.feature_id = DISP_FEATURE_LOCAL_HBM;
+		switch (op_code) {
+		case LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_1000NIT:
+			if (is_aod_and_panel_initialized(dsi_display->panel) &&
+				(!mi_cfg->fod_anim_layer_enabled ||
 				mi_cfg->panel_state == PANEL_STATE_DOZE_HIGH ||
 				mi_cfg->panel_state == PANEL_STATE_DOZE_LOW))
-					ctl.feature_val = LOCAL_HBM_HLPM_WHITE_1000NIT;
-				else
-					ctl.feature_val = LOCAL_HBM_NORMAL_WHITE_1000NIT;
-			} else if (mi_cfg->local_hbm_target == LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_110NIT) {
-				if (is_aod_and_panel_initialized(dsi_display->panel) && (!mi_cfg->fod_anim_layer_enabled ||
+				ctl.feature_val = LOCAL_HBM_HLPM_WHITE_1000NIT;
+			else
+				ctl.feature_val = LOCAL_HBM_NORMAL_WHITE_1000NIT;
+			break;
+		case LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_110NIT:
+			if (is_aod_and_panel_initialized(dsi_display->panel) &&
+				(!mi_cfg->fod_anim_layer_enabled ||
 				mi_cfg->panel_state == PANEL_STATE_DOZE_HIGH ||
 				mi_cfg->panel_state == PANEL_STATE_DOZE_LOW))
-					ctl.feature_val = LOCAL_HBM_HLPM_WHITE_110NIT;
-				else
-					ctl.feature_val = LOCAL_HBM_NORMAL_WHITE_110NIT;
-			}
-		} else {
-			ctl.feature_id = DISP_FEATURE_HBM_FOD;
-			ctl.feature_val = FEATURE_ON;
-		}
-		break;
-	case MI_FOD_HBM_OFF:
-		if (mi_cfg->local_hbm_enabled) {
-			ctl.feature_id = DISP_FEATURE_LOCAL_HBM;
+				ctl.feature_val = LOCAL_HBM_HLPM_WHITE_110NIT;
+			else
+				ctl.feature_val = LOCAL_HBM_NORMAL_WHITE_110NIT;
+			break;
+		case LOCAL_HBM_TARGET_BRIGHTNESS_GREEN_500NIT:
+			ctl.feature_val = LOCAL_HBM_NORMAL_GREEN_500NIT;
+			break;
+		case LOCAL_HBM_TARGET_BRIGHTNESS_OFF_AUTH_STOP:
 			if (is_aod_and_panel_initialized(dsi_display->panel)) {
-				if (mi_cfg->feature_val[DISP_FEATURE_FP_STATUS] == AUTH_STOP) {
-					ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE;
-				} else if (mi_cfg->fod_anim_layer_enabled) {
+				ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE;
+			} else {
+				ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL;
+			}
+			break;
+		case LOCAL_HBM_TARGET_BRIGHTNESS_OFF_FINGER_UP:
+			if (is_aod_and_panel_initialized(dsi_display->panel)) {
+				if (mi_cfg->fod_anim_layer_enabled) {
 					ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT;
 				} else if (dsi_display->panel->mi_cfg.doze_brightness == DOZE_BRIGHTNESS_HBM) {
 					ctl.feature_val = LOCAL_HBM_OFF_TO_HLPM;
@@ -276,21 +262,79 @@ int mi_sde_connector_panel_ctl(struct drm_connector *connector, uint32_t op_code
 			} else {
 				ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL;
 			}
-		} else {
-			ctl.feature_id = DISP_FEATURE_HBM_FOD;
-			ctl.feature_val = FEATURE_OFF;
+			break;
+		default:
+			DISP_ERROR("invalid target_brightness = %d\n", op_code);
+			break;
 		}
-		break;
-	case MI_FOD_AOD_TO_NORMAL:
-		ctl.feature_id = DISP_FEATURE_AOD_TO_NORMAL;
-		ctl.feature_val = FEATURE_ON;
-		break;
-	case MI_FOD_NORMAL_TO_AOD:
-		ctl.feature_id = DISP_FEATURE_AOD_TO_NORMAL;
-		ctl.feature_val = FEATURE_OFF;
-		break;
-	default:
-		break;
+	} else {
+		switch (op_code) {
+		case MI_FOD_HBM_ON:
+			if (mi_cfg->local_hbm_enabled) {
+				ctl.feature_id = DISP_FEATURE_LOCAL_HBM;
+				if (mi_cfg->feature_val[DISP_FEATURE_FP_STATUS] == HEART_RATE_START) {
+					ctl.feature_val = LOCAL_HBM_NORMAL_GREEN_500NIT;
+					mi_cfg->local_hbm_target = LOCAL_HBM_TARGET_BRIGHTNESS_GREEN_500NIT;
+					break;
+				}
+				mi_cfg->local_hbm_target = mi_sde_get_fod_hbm_target_brightness(dsi_display);
+				if (mi_cfg->feature_val[DISP_FEATURE_FP_STATUS] == ENROLL_START)
+					mi_cfg->local_hbm_target = LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_1000NIT;
+
+				if (mi_cfg->local_hbm_target == LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_1000NIT) {
+					if (is_aod_and_panel_initialized(dsi_display->panel) && (!mi_cfg->fod_anim_layer_enabled ||
+					mi_cfg->panel_state == PANEL_STATE_DOZE_HIGH ||
+					mi_cfg->panel_state == PANEL_STATE_DOZE_LOW))
+						ctl.feature_val = LOCAL_HBM_HLPM_WHITE_1000NIT;
+					else
+						ctl.feature_val = LOCAL_HBM_NORMAL_WHITE_1000NIT;
+				} else if (mi_cfg->local_hbm_target == LOCAL_HBM_TARGET_BRIGHTNESS_WHITE_110NIT) {
+					if (is_aod_and_panel_initialized(dsi_display->panel) && (!mi_cfg->fod_anim_layer_enabled ||
+					mi_cfg->panel_state == PANEL_STATE_DOZE_HIGH ||
+					mi_cfg->panel_state == PANEL_STATE_DOZE_LOW))
+						ctl.feature_val = LOCAL_HBM_HLPM_WHITE_110NIT;
+					else
+						ctl.feature_val = LOCAL_HBM_NORMAL_WHITE_110NIT;
+				}
+			} else {
+				ctl.feature_id = DISP_FEATURE_HBM_FOD;
+				ctl.feature_val = FEATURE_ON;
+			}
+			break;
+		case MI_FOD_HBM_OFF:
+			if (mi_cfg->local_hbm_enabled) {
+				ctl.feature_id = DISP_FEATURE_LOCAL_HBM;
+				if (is_aod_and_panel_initialized(dsi_display->panel)) {
+					if (mi_cfg->feature_val[DISP_FEATURE_FP_STATUS] == AUTH_STOP) {
+						ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE;
+					} else if (mi_cfg->fod_anim_layer_enabled) {
+						ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT;
+					} else if (dsi_display->panel->mi_cfg.doze_brightness == DOZE_BRIGHTNESS_HBM) {
+						ctl.feature_val = LOCAL_HBM_OFF_TO_HLPM;
+					} else if (dsi_display->panel->mi_cfg.doze_brightness == DOZE_BRIGHTNESS_LBM) {
+						ctl.feature_val = LOCAL_HBM_OFF_TO_LLPM;
+					} else {
+						ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE;
+					}
+				} else {
+					ctl.feature_val = LOCAL_HBM_OFF_TO_NORMAL;
+				}
+			} else {
+				ctl.feature_id = DISP_FEATURE_HBM_FOD;
+				ctl.feature_val = FEATURE_OFF;
+			}
+			break;
+		case MI_FOD_AOD_TO_NORMAL:
+			ctl.feature_id = DISP_FEATURE_AOD_TO_NORMAL;
+			ctl.feature_val = FEATURE_ON;
+			break;
+		case MI_FOD_NORMAL_TO_AOD:
+			ctl.feature_id = DISP_FEATURE_AOD_TO_NORMAL;
+			ctl.feature_val = FEATURE_OFF;
+			break;
+		default:
+			break;
+		}
 	}
 
 	mutex_unlock(&dsi_display->panel->panel_lock);
@@ -335,9 +379,9 @@ int mi_sde_connector_gir_fence(struct drm_connector *connector)
 		return -EINVAL;
 
 	mi_cfg = &dsi_display->panel->mi_cfg;
-	mutex_lock(&dsi_display->panel->panel_lock);
 	if ((mi_cfg->gir_enabled == false)
 			&& mi_cfg->feature_val[DISP_FEATURE_GIR] == FEATURE_ON) {
+		mutex_lock(&dsi_display->panel->panel_lock);
 		if (is_aod_and_panel_initialized(dsi_display->panel)) {
 			DISP_INFO("In aod or panel not initialized, skip set GIR on\n");
 		} else {
@@ -347,15 +391,17 @@ int mi_sde_connector_gir_fence(struct drm_connector *connector)
 			SDE_ATRACE_END("DISP_FEATURE_GIR_ON");
 			mi_cfg->gir_enabled = true;
 		}
+		mutex_unlock(&dsi_display->panel->panel_lock);
 	} else if (mi_cfg->gir_enabled == true
 				&& mi_cfg->feature_val[DISP_FEATURE_GIR] == FEATURE_OFF) {
+		mutex_lock(&dsi_display->panel->panel_lock);
 		SDE_ATRACE_BEGIN("DISP_FEATURE_GIR_OFF");
 		dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_MI_FLAT_MODE_OFF);
 		sde_encoder_wait_for_event(c_conn->encoder,MSM_ENC_VBLANK);
 		SDE_ATRACE_END("DISP_FEATURE_GIR_OFF");
 		mi_cfg->gir_enabled = false;
+		mutex_unlock(&dsi_display->panel->panel_lock);
 	}
-	mutex_unlock(&dsi_display->panel->panel_lock);
 
 	return rc;
 }
@@ -387,9 +433,9 @@ int mi_sde_connector_dc_fence(struct drm_connector *connector)
 		return -EINVAL;
 
 	mi_cfg = &dsi_display->panel->mi_cfg;
-	mutex_lock(&dsi_display->panel->panel_lock);
 	if ((mi_cfg->dc_enabled == false)
 			&& mi_cfg->feature_val[DISP_FEATURE_DC] == FEATURE_ON) {
+		mutex_lock(&dsi_display->panel->panel_lock);
 		if (is_aod_and_panel_initialized(dsi_display->panel)) {
 			DISP_INFO("In aod or panel not initialized, skip set DC on\n");
 		} else {
@@ -399,17 +445,17 @@ int mi_sde_connector_dc_fence(struct drm_connector *connector)
 			SDE_ATRACE_END("DISP_FEATURE_DC_ON");
 			mi_cfg->dc_enabled = true;
 		}
+		mutex_unlock(&dsi_display->panel->panel_lock);
 	} else if (mi_cfg->dc_enabled == true
 				&& mi_cfg->feature_val[DISP_FEATURE_DC] == FEATURE_OFF) {
+		mutex_lock(&dsi_display->panel->panel_lock);
 		SDE_ATRACE_BEGIN("DISP_FEATURE_DC_OFF");
 		dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_MI_DC_OFF);
 		sde_encoder_wait_for_event(c_conn->encoder,MSM_ENC_VBLANK);
 		SDE_ATRACE_END("DISP_FEATURE_DC_OFF");
 		mi_cfg->dc_enabled = false;
+		mutex_unlock(&dsi_display->panel->panel_lock);
 	}
-	mutex_unlock(&dsi_display->panel->panel_lock);
-
-	mutex_unlock(&dsi_display->panel->panel_lock);
 
 	return rc;
 }
@@ -445,7 +491,7 @@ int mi_sde_connector_fod_hbm_fence(struct drm_connector *connector)
 
 	mi_cfg = &dsi_display->panel->mi_cfg;
 
-	if (mi_cfg->panel_id == 0x4B394400360200 || mi_cfg->panel_id == 0x4B394400420d00) {
+	if (mi_cfg->panel_id == 0x4B394400360200 || mi_cfg->panel_id == 0x4B394400420d00 || mi_cfg->panel_id == 0x4D323000360200) {
 		if (!(c_conn->mi_layer_state.mi_layer_type & MI_DIMLAYER_AOD)) {
 			if (c_conn->lp_mode == SDE_MODE_DPMS_ON)
 				mi_cfg->bl_enable = true;
@@ -453,7 +499,12 @@ int mi_sde_connector_fod_hbm_fence(struct drm_connector *connector)
 				sde_enc->ready_kickoff = true;
 				if (sde_enc->prepare_kickoff) {
 					SDE_ATRACE_BEGIN("set_backlight_after_aod");
-					dsi_display_set_backlight(connector, dsi_display, mi_cfg->last_bl_level);
+					if (mi_cfg->panel_id == 0x4D323000360200) {
+						if (mi_cfg->last_bl_level > 0)
+						dsi_display_set_backlight(connector, dsi_display, mi_cfg->last_bl_level);
+					} else {
+						dsi_display_set_backlight(connector, dsi_display, mi_cfg->last_bl_level);
+					}
 					SDE_ATRACE_END("set_backlight_after_aod");
 					DISP_INFO("backlight %d set after aod layer\n", mi_cfg->last_bl_level);
 					mi_cfg->bl_wait_frame = true;
@@ -470,13 +521,13 @@ int mi_sde_connector_fod_hbm_fence(struct drm_connector *connector)
 		if (!mi_cfg->fod_anim_layer_enabled && !mi_cfg->fod_hbm_layer_enabled && c_conn->allow_bl_update) {
 			mi_cfg->fod_anim_layer_enabled = true;
 			if (is_aod_and_panel_initialized(dsi_display->panel))
-				mi_sde_connector_panel_ctl(connector, MI_FOD_AOD_TO_NORMAL);
+				mi_sde_connector_panel_ctl(connector, MI_FOD_AOD_TO_NORMAL, false);
 		}
 	} else {
 		if (mi_cfg->fod_anim_layer_enabled) {
 			mi_cfg->fod_anim_layer_enabled = false;
 			if (is_aod_and_panel_initialized(dsi_display->panel) && c_conn->mi_layer_state.mi_layer_type & MI_DIMLAYER_AOD)
-				mi_sde_connector_panel_ctl(connector, MI_FOD_NORMAL_TO_AOD);
+				mi_sde_connector_panel_ctl(connector, MI_FOD_NORMAL_TO_AOD, false);
 		}
 	}
 #if 0
@@ -491,7 +542,7 @@ int mi_sde_connector_fod_hbm_fence(struct drm_connector *connector)
 			if (mi_cfg->delay_before_fod_hbm_on)
 				sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
 
-			mi_sde_connector_panel_ctl(connector, MI_FOD_HBM_ON);
+			mi_sde_connector_panel_ctl(connector, MI_FOD_HBM_ON, false);
 
 			mi_cfg->fod_hbm_layer_enabled = true;
 		}
@@ -501,7 +552,7 @@ int mi_sde_connector_fod_hbm_fence(struct drm_connector *connector)
 			if (mi_cfg->delay_before_fod_hbm_off)
 				sde_encoder_wait_for_event(c_conn->encoder, MSM_ENC_VBLANK);
 
-			mi_sde_connector_panel_ctl(connector, MI_FOD_HBM_OFF);
+			mi_sde_connector_panel_ctl(connector, MI_FOD_HBM_OFF, false);
 
 			mi_cfg->fod_hbm_layer_enabled = false;
 		}

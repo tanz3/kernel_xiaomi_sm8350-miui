@@ -39,8 +39,74 @@ extern "C" {
 
 enum disp_display_type {
 	MI_DISP_PRIMARY = 0,
-	MI_DISP_SECONDARY,
+	MI_DISP_SECONDARY = 1,
 	MI_DISP_MAX,
+};
+
+enum common_feature_state {
+	FEATURE_OFF = 0,
+	FEATURE_ON,
+};
+
+enum disp_feature_id {
+	DISP_FEATURE_DIMMING = 0,
+	DISP_FEATURE_HBM = 1,
+	DISP_FEATURE_HBM_FOD = 2,
+	DISP_FEATURE_DOZE_BRIGHTNESS = 3,
+	DISP_FEATURE_FOD_CALIBRATION_BRIGHTNESS = 4,
+	DISP_FEATURE_FOD_CALIBRATION_HBM = 5,
+	DISP_FEATURE_FLAT_MODE = 6,
+	DISP_FEATURE_CRC = 7,
+	DISP_FEATURE_DC = 8,
+	DISP_FEATURE_LOCAL_HBM = 9,
+	DISP_FEATURE_SENSOR_LUX = 10,
+	DISP_FEATURE_LOW_BRIGHTNESS_FOD = 11,
+	DISP_FEATURE_FP_STATUS = 12,
+	DISP_FEATURE_FOLD_STATUS = 13,
+	DISP_FEATURE_NATURE_FLAT_MODE = 14,
+	DISP_FEATURE_SPR_RENDER = 15,
+	DISP_FEATURE_AOD_TO_NORMAL = 16,
+	DISP_FEATURE_COLOR_INVERT = 17,
+	DISP_FEATURE_DC_BACKLIGHT = 18,
+	DISP_FEATURE_GIR = 19,
+	DISP_FEATURE_DBI = 20,
+	DISP_FEATURE_DDIC_ROUND_CORNER = 21,
+	DISP_FEATURE_HBM_BACKLIGHT = 22,
+	DISP_FEATURE_MAX,
+};
+
+/* feature_id: DISP_FEATURE_LOCAL_HBM corresponding feature_val */
+enum local_hbm_state {
+	LOCAL_HBM_OFF_TO_NORMAL = 0,
+	LOCAL_HBM_NORMAL_WHITE_1000NIT = 1,
+	LOCAL_HBM_NORMAL_WHITE_750NIT = 2,
+	LOCAL_HBM_NORMAL_WHITE_500NIT = 3,
+	LOCAL_HBM_NORMAL_WHITE_110NIT = 4,
+	LOCAL_HBM_NORMAL_GREEN_500NIT = 5,
+	LOCAL_HBM_HLPM_WHITE_1000NIT = 6,
+	LOCAL_HBM_HLPM_WHITE_110NIT = 7,
+	LOCAL_HBM_OFF_TO_HLPM = 8,
+	LOCAL_HBM_OFF_TO_LLPM = 9,
+	LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT = 10,
+	LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE = 11,
+	LOCAL_HBM_MAX,
+};
+
+/* feature_id: DISP_FEATURE_FP_STATUS corresponding feature_val */
+enum fingerprint_status {
+	FINGERPRINT_NONE = 0,
+	ENROLL_START = 1,
+	ENROLL_STOP = 2,
+	AUTH_START = 3,
+	AUTH_STOP = 4,
+	HEART_RATE_START = 5,
+	HEART_RATE_STOP = 6,
+};
+
+/* feature_id: DISP_FEATURE_SPR_RENDER corresponding feature_val */
+enum spr_render_status {
+	SPR_1D_RENDERING = 1,
+	SPR_2D_RENDERING = 2,
 };
 
 struct disp_base {
@@ -63,9 +129,28 @@ struct disp_feature_req {
 	__u64 rx_ptr;
 };
 
+/**
+ * enum doze_brightness_state - set doze brightness state
+ * @DOZE_TO_NORMAL     : doze mode to normal mode
+ * @DOZE_BRIGHTNESS_HBM: doze mode high brightness (60 nit)
+ * @DOZE_BRIGHTNESS_LBM: doze mode low brightness (5 nit)
+ * @DOZE_BRIGHTNESS_MAX
+ */
+enum doze_brightness_state {
+	DOZE_TO_NORMAL = 0,
+	DOZE_BRIGHTNESS_HBM = 1,
+	DOZE_BRIGHTNESS_LBM = 2,
+	DOZE_BRIGHTNESS_MAX,
+};
+
 struct disp_doze_brightness_req {
 	struct disp_base base;
 	__u32 doze_brightness;
+};
+
+struct disp_local_hbm_req {
+	struct disp_base base;
+	__u32 local_hbm_value;
 };
 
 struct disp_brightness_req {
@@ -98,6 +183,9 @@ enum disp_event_type {
     MI_DISP_EVENT_DOZE = 3,
     MI_DISP_EVENT_FPS = 4,
     MI_DISP_EVENT_BRIGHTNESS_CLONE = 5,
+    MI_DISP_EVENT_51_BRIGHTNESS = 6,
+    MI_DISP_EVENT_HBM = 7,
+    MI_DISP_EVENT_DC = 8,
     MI_DISP_EVENT_MAX,
 };
 
@@ -125,7 +213,7 @@ struct disp_event_resp {
  */
 enum disp_dsi_cmd_state {
 	MI_DSI_CMD_LP_STATE = 0,
-	MI_DSI_CMD_HS_STATE,
+	MI_DSI_CMD_HS_STATE = 1,
 	MI_DSI_CMD_MAX_STATE,
 };
 
@@ -137,74 +225,6 @@ struct disp_dsi_cmd_req {
 	__u8  rx_state;
 	__u32 rx_len;
 	__u64 rx_ptr;
-};
-
-enum common_feature_state {
-	FEATURE_OFF = 0,
-	FEATURE_ON,
-};
-
-enum doze_brightness_state {
-	DOZE_TO_NORMAL = 0,
-	DOZE_BRIGHTNESS_HBM,
-	DOZE_BRIGHTNESS_LBM,
-	DOZE_BRIGHTNESS_MAX,
-};
-
-enum local_hbm_state {
-	LOCAL_HBM_OFF_TO_NORMAL = 0,
-	LOCAL_HBM_NORMAL_WHITE_1000NIT,
-	LOCAL_HBM_NORMAL_WHITE_750NIT,
-	LOCAL_HBM_NORMAL_WHITE_500NIT,
-	LOCAL_HBM_NORMAL_WHITE_110NIT,
-	LOCAL_HBM_NORMAL_GREEN_500NIT,
-	LOCAL_HBM_HLPM_WHITE_1000NIT,
-	LOCAL_HBM_HLPM_WHITE_110NIT,
-	LOCAL_HBM_OFF_TO_HLPM,
-	LOCAL_HBM_OFF_TO_LLPM,
-	LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT,
-	LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE,
-	LOCAL_HBM_MAX,
-};
-
-enum fingerprint_status {
-	FINGERPRINT_NONE = 0,
-	ENROLL_START = 1,
-	ENROLL_STOP = 2,
-	AUTH_START = 3,
-	AUTH_STOP = 4,
-	HEART_RATE_START = 5,
-	HEART_RATE_STOP = 6,
-};
-
-enum spr_render_status {
-	SPR_1D_RENDERING = 1,
-	SPR_2D_RENDERING = 2,
-};
-
-enum disp_feature_id {
-	DISP_FEATURE_DIMMING,
-	DISP_FEATURE_HBM,
-	DISP_FEATURE_HBM_FOD,
-	DISP_FEATURE_DOZE_BRIGHTNESS,
-	DISP_FEATURE_FOD_CALIBRATION_BRIGHTNESS,
-	DISP_FEATURE_FOD_CALIBRATION_HBM,
-	DISP_FEATURE_FLAT_MODE,
-	DISP_FEATURE_CRC,
-	DISP_FEATURE_DC,
-	DISP_FEATURE_LOCAL_HBM,
-	DISP_FEATURE_SENSOR_LUX,
-	DISP_FEATURE_LOW_BRIGHTNESS_FOD,
-	DISP_FEATURE_FP_STATUS,
-	DISP_FEATURE_FOLD_STATUS,
-	DISP_FEATURE_NATURE_FLAT_MODE,
-	DISP_FEATURE_SPR_RENDER,
-	DISP_FEATURE_AOD_TO_NORMAL,
-	DISP_FEATURE_COLOR_INVERT,
-	DISP_FEATURE_DC_BACKLIGHT,
-	DISP_FEATURE_GIR,
-	DISP_FEATURE_DBI,
-	DISP_FEATURE_MAX,
 };
 
 #if defined(__KERNEL__)
@@ -282,6 +302,12 @@ static inline const char *get_disp_event_type_name(__u32 event_type)
 		return "Fps";
 	case MI_DISP_EVENT_BRIGHTNESS_CLONE:
 		return "Brightness_clone";
+	case MI_DISP_EVENT_51_BRIGHTNESS:
+		return "51_brightness";
+	case MI_DISP_EVENT_HBM:
+		return "HBM";
+	case MI_DISP_EVENT_DC:
+		return "DC";
 	default:
 		return "Unknown";
 	}
@@ -293,6 +319,60 @@ static inline int is_support_disp_feature_id(int feature_id)
 		return 1;
 	else
 		return 0;
+}
+
+static inline const char *get_local_hbm_state_name(int state)
+{
+	switch (state) {
+	case LOCAL_HBM_OFF_TO_NORMAL:
+		return "[lhbm off to nomal]";
+	case LOCAL_HBM_NORMAL_WHITE_1000NIT:
+		return "[lhbm normal white 1000nit]";
+	case LOCAL_HBM_NORMAL_WHITE_750NIT:
+		return "[lhbm normal white 750nit]";
+	case LOCAL_HBM_NORMAL_WHITE_500NIT:
+		return "[lhbm normal white 500nit]";
+	case LOCAL_HBM_NORMAL_WHITE_110NIT:
+		return "[lhbm normal white 110nit]";
+	case LOCAL_HBM_NORMAL_GREEN_500NIT:
+		return "[lhbm normal green 500nit]";
+	case LOCAL_HBM_HLPM_WHITE_1000NIT:
+		return "[lhbm H-doze to white 1000nit]";
+	case LOCAL_HBM_HLPM_WHITE_110NIT:
+		return "[lhbm H-doze to white 110nit]";
+	case LOCAL_HBM_OFF_TO_HLPM:
+		return "[lhbm off to H-doze]";
+	case LOCAL_HBM_OFF_TO_LLPM:
+		return "[lhbm off to L-doze]";
+	case LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT:
+		return "[lhbm off to nomal backlight]";
+	case LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE:
+		return "[lhbm off to nomal backlight restore]";
+	default:
+		return "Unknown";
+	}
+}
+
+static inline const char *get_fingerprint_status_name(int status)
+{
+	switch (status) {
+	case FINGERPRINT_NONE:
+		return "none";
+	case ENROLL_START:
+		return "enroll_start";
+	case ENROLL_STOP:
+		return "enroll_stop";
+	case AUTH_START:
+		return "authenticate_start";
+	case AUTH_STOP:
+		return "authenticate_stop";
+	case HEART_RATE_START:
+		return "heart_rate_start";
+	case HEART_RATE_STOP:
+		return "heart_rate_stop";
+	default:
+		return "Unknown";
+	}
 }
 
 static inline const char *get_disp_feature_id_name(int feature_id)
@@ -336,10 +416,14 @@ static inline const char *get_disp_feature_id_name(int feature_id)
 		return "color_invert";
 	case DISP_FEATURE_DC_BACKLIGHT:
 		return "dc_backlight";
-	case DISP_FEATURE_DBI:
-		return "dbi";
 	case DISP_FEATURE_GIR:
 		return "gir";
+	case DISP_FEATURE_DBI:
+		return "dbi";
+	case DISP_FEATURE_DDIC_ROUND_CORNER:
+		return "ddic_round_corner";
+	case DISP_FEATURE_HBM_BACKLIGHT:
+		return "hbm_backlight_level";
 	default:
 		return "Unknown";
 	}
@@ -360,6 +444,37 @@ static inline const char *getDispIdName(int disp_id)
 		return "primary";
 	case MI_DISP_SECONDARY:
 		return "secondary";
+	default:
+		return "Unknown";
+	}
+}
+
+static inline int isSupportDozeBrightness(__u32 doze_brightness)
+{
+	if (DOZE_TO_NORMAL <= doze_brightness && doze_brightness < DOZE_BRIGHTNESS_MAX)
+		return 1;
+	else
+		return 0;
+}
+
+static inline int isAodBrightness(__u32 doze_brightness)
+{
+	if (DOZE_BRIGHTNESS_HBM == doze_brightness ||
+		doze_brightness == DOZE_BRIGHTNESS_LBM)
+		return 1;
+	else
+		return 0;
+}
+
+static inline const char *getDozeBrightnessName(__u32 doze_brightness)
+{
+	switch (doze_brightness) {
+	case DOZE_TO_NORMAL:
+		return "doze_to_normal";
+	case DOZE_BRIGHTNESS_HBM:
+		return "doze_brightness_high";
+	case DOZE_BRIGHTNESS_LBM:
+		return "doze_brightness_low";
 	default:
 		return "Unknown";
 	}
@@ -387,7 +502,13 @@ static inline const char *getDispEventTypeName(__u32 event_type)
 	case MI_DISP_EVENT_FPS:
 		return "Fps";
 	case MI_DISP_EVENT_BRIGHTNESS_CLONE:
-		return "brightness_clone";
+		return "Brightness_clone";
+	case MI_DISP_EVENT_51_BRIGHTNESS:
+		return "51_brightness";
+	case MI_DISP_EVENT_HBM:
+		return "HBM";
+	case MI_DISP_EVENT_DC:
+		return "DC";
 	default:
 		return "Unknown";
 	}
@@ -399,6 +520,60 @@ static inline int isSupportDispFeatureId(int feature_id)
 		return 1;
 	else
 		return 0;
+}
+
+static inline const char *getLocalHbmStateName(int state)
+{
+	switch (state) {
+	case LOCAL_HBM_OFF_TO_NORMAL:
+		return "[lhbm off to nomal]";
+	case LOCAL_HBM_NORMAL_WHITE_1000NIT:
+		return "[lhbm normal white 1000nit]";
+	case LOCAL_HBM_NORMAL_WHITE_750NIT:
+		return "[lhbm normal white 750nit]";
+	case LOCAL_HBM_NORMAL_WHITE_500NIT:
+		return "[lhbm normal white 500nit]";
+	case LOCAL_HBM_NORMAL_WHITE_110NIT:
+		return "[lhbm normal white 110nit]";
+	case LOCAL_HBM_NORMAL_GREEN_500NIT:
+		return "[lhbm normal green 500nit]";
+	case LOCAL_HBM_HLPM_WHITE_1000NIT:
+		return "[lhbm H-doze to white 1000nit]";
+	case LOCAL_HBM_HLPM_WHITE_110NIT:
+		return "[lhbm H-doze to white 110nit]";
+	case LOCAL_HBM_OFF_TO_HLPM:
+		return "[lhbm off to H-doze]";
+	case LOCAL_HBM_OFF_TO_LLPM:
+		return "[lhbm off to L-doze]";
+	case LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT:
+		return "[lhbm off to nomal backlight]";
+	case LOCAL_HBM_OFF_TO_NORMAL_BACKLIGHT_RESTORE:
+		return "[lhbm off to nomal backlight restore]";
+	default:
+		return "Unknown";
+	}
+}
+
+static inline const char *getFingerprintStatusName(int status)
+{
+	switch (status) {
+	case FINGERPRINT_NONE:
+		return "none";
+	case ENROLL_START:
+		return "enroll_start";
+	case ENROLL_STOP:
+		return "enroll_stop";
+	case AUTH_START:
+		return "authenticate_start";
+	case AUTH_STOP:
+		return "authenticate_stop";
+	case HEART_RATE_START:
+		return "heart_rate_start";
+	case HEART_RATE_STOP:
+		return "heart_rate_stop";
+	default:
+		return "Unknown";
+	}
 }
 
 static inline const char *getDispFeatureIdName(int feature_id)
@@ -432,6 +607,8 @@ static inline const char *getDispFeatureIdName(int feature_id)
 		return "fp_status";
 	case DISP_FEATURE_FOLD_STATUS:
 		return "fold_status";
+	case DISP_FEATURE_NATURE_FLAT_MODE:
+		return "nature_flat_mode";
 	case DISP_FEATURE_SPR_RENDER:
 		return "spr_render";
 	case DISP_FEATURE_AOD_TO_NORMAL:
@@ -440,11 +617,18 @@ static inline const char *getDispFeatureIdName(int feature_id)
 		return "color_invert";
 	case DISP_FEATURE_DC_BACKLIGHT:
 		return "dc_backlight";
+	case DISP_FEATURE_GIR:
+		return "gir";
+	case DISP_FEATURE_DBI:
+		return "dbi";
+	case DISP_FEATURE_DDIC_ROUND_CORNER:
+		return "ddic_round_corner";
+	case DISP_FEATURE_HBM_BACKLIGHT:
+		return "hbm_backlight_level";
 	default:
 		return "Unknown";
 	}
 }
-
 #endif
 
 
@@ -468,6 +652,8 @@ static inline const char *getDispFeatureIdName(int feature_id)
 #define MI_DISP_IOCTL_WRITE_DSI_CMD        _IOW('D', 0x09, struct disp_dsi_cmd_req)
 #define MI_DISP_IOCTL_READ_DSI_CMD        _IOWR('D', 0x0A, struct disp_dsi_cmd_req)
 #define MI_DISP_IOCTL_GET_BRIGHTNESS       _IOR('D', 0x0B, struct disp_brightness_req)
+#define MI_DISP_IOCTL_GET_FEATURE         _IOWR('D', 0x0C, struct disp_feature_req)
+#define MI_DISP_IOCTL_SET_LOCAL_HBM        _IOW('D', 0x0E, struct disp_local_hbm_req)
 
 #if defined(__cplusplus)
 }

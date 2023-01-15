@@ -398,6 +398,10 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	  mdelay(1);
 	}
 
+	if (panel->mi_cfg.panel_id == 0x4D323000360200) {
+	  mdelay(5);
+	}
+
 	if (gpio_is_valid(panel->reset_config.reset_gpio) &&
 					!panel->reset_gpio_always_on)
 		gpio_set_value(panel->reset_config.reset_gpio, 0);
@@ -566,6 +570,7 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 	unsigned long mode_flags = 0;
 	struct mipi_dsi_device *dsi = NULL;
 
+
 	if (!panel || (bl_lvl > 0xffff)) {
 		DSI_ERR("invalid params\n");
 		return -EINVAL;
@@ -582,6 +587,7 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 			bl_lvl = 321;
 		}
 	}
+
 
 	bl_tmp = bl_lvl;
 
@@ -1217,6 +1223,15 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 	} else {
 		host->clk_strength = 0;
 		pr_info("[%s] clk_strength default value = %d\n", name, val);
+	}
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-phy-voltage", &val);
+	if (!rc) {
+		host->phy_voltage = val;
+		pr_info("[%s] phy_voltage = %d\n", name, val);
+	} else {
+		host->phy_voltage = 0;
+		pr_info("[%s] phy_voltage default value = %d\n", name, val);
 	}
 
 	DSI_DEBUG("[%s] DMA scheduling parameters Line: %d Window: %d\n", name,
@@ -1876,7 +1891,9 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-timing-switch-gir-command",
 	"mi,mdss-dsi-aod-to-dc-on-command",
 	"mi,mdss-dsi-switch-page4-command",
-
+	"mi,mdss-dsi-fps-120-gamma-command",
+	"mi,mdss-dsi-fps-90-gamma-command",
+	"mi,mdss-dsi-fps-60-gamma-command",
 	/* xiaomi add end */
 };
 
@@ -1964,7 +1981,9 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-timing-switch-gir-command-state",
 	"mi,mdss-dsi-aod-to-dc-on-command-state",
 	"mi,mdss-dsi-switch-page4-command-state",
-
+	"mi,mdss-dsi-fps-120-gamma-command-state",
+	"mi,mdss-dsi-fps-90-gamma-command-state",
+	"mi,mdss-dsi-fps-60-gamma-command-state",
 	/* xiaomi add end */
 };
 
@@ -4610,7 +4629,7 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 exit:
 	mi_dsi_update_micfg_flags(panel, PANEL_LP1);
 	if (panel->mi_cfg.panel_id == 0x4B394400360200
-            || panel->mi_cfg.panel_id == 0x4B394400420d00)
+            || panel->mi_cfg.panel_id == 0x4B394400420d00 || panel->mi_cfg.panel_id == 0x4D323000360200)
 		panel->mi_cfg.bl_enable = false;
 	panel->mi_cfg.bl_wait_frame = false;
 	mutex_unlock(&panel->panel_lock);
@@ -5018,6 +5037,38 @@ int dsi_panel_switch(struct dsi_panel *panel)
 
 	return rc;
 }
+int dsi_panel_gamma_switch(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		DSI_ERR("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!panel->panel_initialized) {
+		DSI_ERR("panel_initialized fail\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+	if (panel->cur_mode->timing.refresh_rate == 120){
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_FPS_120_GAMMA);
+	} else if (panel->cur_mode->timing.refresh_rate == 90) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_FPS_90_GAMMA);
+	} else if (panel->cur_mode->timing.refresh_rate == 60){
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_FPS_60_GAMMA);
+	}
+
+	if (rc)
+		DSI_ERR("[%s] failed to send DSI_CMD_SET_MI_FPS_GAMMA cmds, rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
+	DISP_UTC_INFO("%s panel: DSI_CMD_SET_MI_FPS_GAMMA\n", panel->type);
+
+	return rc;
+}
 
 int dsi_panel_post_switch(struct dsi_panel *panel)
 {
@@ -5092,13 +5143,17 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 error:
 	mutex_unlock(&panel->panel_lock);
 
+	if (panel->mi_cfg.panel_id == 0x4D323000360200) {
+		dsi_panel_gamma_switch(panel);
+	}
+
 	if (panel->mi_cfg.flatmode_update_flag) {
 		if (panel->mi_cfg.panel_id == 0x4C3900420200){
 			rc = mi_dsi_panel_update_vdc_param(panel);
 			if (rc) {
 				DSI_ERR("[%s] failed to update vdc parameter, rc=%d\n",panel->name, rc);
 			}
-		} else if (panel->mi_cfg.panel_id == 0x4C3900360200){
+		} else if ((panel->mi_cfg.panel_id == 0x4C3900360200) || (panel->mi_cfg.panel_id == 0x4D323000360200)){
 			DSI_ERR("[%s] Not need to update flatmode parameter\n",panel->name);
 		} else{
 			rc = mi_dsi_panel_read_and_update_flatmode_param(panel);
