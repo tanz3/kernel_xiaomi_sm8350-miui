@@ -191,6 +191,9 @@ static int mi_dsi_panel_parse_local_hbm_config(struct dsi_panel *panel)
 		} else {
 			DISP_INFO("mi,doze-lbm-dbv-level is %d\n", mi_cfg->doze_lbm_dbv_level);
 		}
+
+		mi_cfg->lhbm_fod_touch_ctl_by_sf = utils->read_bool(utils->data, "mi,lhbm-fod-touch-mode-ctl-by-sf");
+		DISP_INFO("mi,lhbm-fod-touch-mode-ctl-by-sf is %d", mi_cfg->lhbm_fod_touch_ctl_by_sf);
 	} else {
 		DISP_DEBUG("mi,local-hbm-enabled not defined\n");
 	}
@@ -271,6 +274,10 @@ static int mi_dsi_panel_parse_lhbm_config(struct dsi_panel *panel)
 		} else {
 			DISP_INFO("mi,doze-lbm-dbv-level is %d\n", mi_cfg->doze_lbm_dbv_level);
 		}
+
+		mi_cfg->lhbm_fod_touch_ctl_by_sf = utils->read_bool(utils->data, "mi,lhbm-fod-touch-mode-ctl-by-sf");
+		DISP_INFO("mi,lhbm-fod-touch-mode-ctl-by-sf is %d", mi_cfg->lhbm_fod_touch_ctl_by_sf);
+
 	} else {
 		DISP_DEBUG("mi,local-hbm-enabled not defined\n");
 	}
@@ -597,7 +604,7 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
         } else {
                 DISP_INFO("mi,local_hbm_normal_dc_gain_index is %d\n", mi_cfg->local_hbm_normal_dc_gain_index);
         }
-
+		
 	rc = utils->read_u32(utils->data, "mi,mdss-dsi-panel-dc-threshold", &mi_cfg->dc_threshold);
 	if (rc) {
 		DISP_INFO("default dc backlight type is %d\n", mi_cfg->dc_threshold);
