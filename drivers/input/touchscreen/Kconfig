@@ -1347,4 +1347,6 @@ source "drivers/input/touchscreen/gt9897t/Kconfig"
 
 source "drivers/input/touchscreen/gt9916_m20/Kconfig"
 
+source "drivers/input/touchscreen/zinitix_bt541/Kconfig"
+
 endif
