@@ -70,3 +70,4 @@ obj-$(CONFIG_ISPV2_AL6021)	+= al6021/
 obj-$(CONFIG_PERF_HELPER)	+= perf_helper.o
 obj-$(CONFIG_GPIO_TESTING_MODE)	+= gpio-testing-mode.o
 obj-$(CONFIG_HAPTIC_NV_L)	+= haptic_nv/
+obj-$(CONFIG_MMHARDWARE_OTHER_DETECTION) += mmhardware_others.o
