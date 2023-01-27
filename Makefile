@@ -678,8 +678,8 @@ export RETPOLINE_VDSO_CFLAGS
 ifdef CONFIG_LTO_CLANG
 # LTO produces LLVM IR instead of object files. Use llvm-ar and llvm-nm, so we
 # can process these.
-AR		:= llvm-ar
-LLVM_NM		:= llvm-nm
+AR		:= $(LLVM_PREFIX)llvm-ar
+LLVM_NM		:= $(LLVM_PREFIX)llvm-nm
 export LLVM_NM
 endif
 
