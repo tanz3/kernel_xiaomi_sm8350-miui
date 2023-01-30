@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 20222 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/of.h>
@@ -213,6 +214,7 @@ irqreturn_t cam_jpeg_enc_irq(int irq_num, void *data)
 			} else {
 				CAM_ERR(CAM_JPEG, "unexpected done, no cb");
 			}
+			cam_cpas_notify_event("JPEG FrameDone", 0);
 		} else {
 			CAM_ERR(CAM_JPEG, "unexpected done irq");
 		}
