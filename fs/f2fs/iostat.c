@@ -87,20 +87,18 @@ int __maybe_unused iostat_info_seq_show(struct seq_file *seq, void *offset)
 
 static inline void __record_iostat_latency(struct f2fs_sb_info *sbi)
 {
-	int io, idx = 0;
-	unsigned int cnt;
+	int io, idx;
 	struct f2fs_iostat_latency iostat_lat[MAX_IO_TYPE][NR_PAGE_TYPE];
 	struct iostat_lat_info *io_lat = sbi->iostat_io_lat;
 
 	spin_lock_irq(&sbi->iostat_lat_lock);
 	for (idx = 0; idx < MAX_IO_TYPE; idx++) {
 		for (io = 0; io < NR_PAGE_TYPE; io++) {
-			cnt = io_lat->bio_cnt[idx][io];
 			iostat_lat[idx][io].peak_lat =
 			   jiffies_to_msecs(io_lat->peak_lat[idx][io]);
-			iostat_lat[idx][io].cnt = cnt;
-			iostat_lat[idx][io].avg_lat = cnt ?
-			   jiffies_to_msecs(io_lat->sum_lat[idx][io]) / cnt : 0;
+			iostat_lat[idx][io].cnt = io_lat->bio_cnt[idx][io];
+			iostat_lat[idx][io].avg_lat = iostat_lat[idx][io].cnt ?
+			   jiffies_to_msecs(io_lat->sum_lat[idx][io]) / iostat_lat[idx][io].cnt : 0;
 			io_lat->sum_lat[idx][io] = 0;
 			io_lat->peak_lat[idx][io] = 0;
 			io_lat->bio_cnt[idx][io] = 0;
@@ -194,8 +192,12 @@ static inline void __update_iostat_latency(struct bio_iostat_ctx *iostat_ctx,
 		return;
 
 	ts_diff = jiffies - iostat_ctx->submit_ts;
-	if (iotype >= META_FLUSH)
+	if (iotype == META_FLUSH) {
 		iotype = META;
+	} else if (iotype >= NR_PAGE_TYPE) {
+		f2fs_warn(sbi, "%s: %d over NR_PAGE_TYPE", __func__, iotype);
+		return;
+	}
 
 	if (rw == 0) {
 		idx = READ_IO;
