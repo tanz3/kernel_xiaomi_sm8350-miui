@@ -810,6 +810,17 @@ void xhci_shutdown(struct usb_hcd *hcd)
 	if (xhci->quirks & XHCI_SPURIOUS_REBOOT)
 		usb_disable_xhci_ports(to_pci_dev(hcd->self.sysdev));
 
+	/* Don't poll the roothubs after shutdown. */
+	xhci_dbg(xhci, "%s: stopping usb%d port polling.\n",
+			__func__, hcd->self.busnum);
+	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
+	del_timer_sync(&hcd->rh_timer);
+
+	if (xhci->shared_hcd) {
+		clear_bit(HCD_FLAG_POLL_RH, &xhci->shared_hcd->flags);
+		del_timer_sync(&xhci->shared_hcd->rh_timer);
+	}
+
 	spin_lock_irq(&xhci->lock);
 	xhci_halt(xhci);
 	/* Workaround for spurious wakeups at shutdown with HSW */
@@ -1127,7 +1138,10 @@ int xhci_resume(struct xhci_hcd *xhci, bool hibernated)
 	bool			comp_timer_running = false;
 	bool			pending_portevent = false;
 
-	if (!hcd->state)
+	if (!hcd)
+		return 0;
+
+        if (!hcd->state)
 		return 0;
 
 	/* Wait a bit if either of the roothubs need to settle from the

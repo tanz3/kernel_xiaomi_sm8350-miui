@@ -413,6 +413,7 @@
 #define DWC3_GUCTL2_RST_ACTBITLATER		BIT(14)
 
 /* Global User Control Register 3 */
+#define DWC3_GUCTL3_USB20_RETRY_DISABLE		BIT(16)
 #define DWC3_GUCTL3_SPLITDISABLE		BIT(14)
 
 /* Device Configuration Register */
@@ -991,6 +992,11 @@ struct dwc3_request {
 #define DWC3_REQUEST_STATUS_COMPLETED	3
 #define DWC3_REQUEST_STATUS_UNKNOWN	-1
 
+/* Add the suitable Feedback status to interface*/
+#define DWC3_REQUEST_STATUS_DISCONNECTED	6
+#define DWC3_REQUEST_STATUS_DEQUEUED		5
+#define DWC3_REQUEST_STATUS_STALLED		4
+
 	u8			epnum;
 	struct dwc3_trb		*trb;
 	dma_addr_t		trb_dma;
@@ -1081,7 +1087,6 @@ struct dwc3_scratchpad_array {
  * @link_state: link state
  * @speed: device speed (super, high, full, low)
  * @hwparams: copy of hwparams registers
- * @root: debugfs root folder pointer
  * @regset: debugfs pointer to regdump file
  * @dbg_lsp_select: current debug lsp mux register selection
  * @test_mode: true when we're entering a USB test mode
@@ -1292,6 +1297,7 @@ struct dwc3 {
 #define DWC31_VERSIONTYPE_EA04		0x65613034
 #define DWC31_VERSIONTYPE_EA05		0x65613035
 #define DWC31_VERSIONTYPE_EA06		0x65613036
+#define DWC31_VERSIONTYPE_GA		0x67612a2a
 
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;
@@ -1307,7 +1313,6 @@ struct dwc3 {
 	u8			num_eps;
 
 	struct dwc3_hwparams	hwparams;
-	struct dentry		*root;
 	struct debugfs_regset32	*regset;
 
 	u32			dbg_lsp_select;
@@ -1426,6 +1431,10 @@ struct dwc3 {
 	wait_queue_head_t	wait_linkstate;
 	struct work_struct	remote_wakeup_work;
 	bool			dual_port;
+#ifndef CONFIG_FACTORY_BUILD
+	struct work_struct 	check_cmd_work;
+	int			gs_cmd_status;
+#endif
 };
 
 #define INCRX_BURST_MODE 0
@@ -1733,6 +1742,10 @@ enum dwc3_notify_event {
 	DWC3_GSI_EVT_BUF_CLEAR,
 	DWC3_GSI_EVT_BUF_FREE,
 	DWC3_CONTROLLER_NOTIFY_CLEAR_DB,
+#ifndef CONFIG_FACTORY_BUILD
+	/*USB RESTART EVENT*/
+	DWC3_USB_RESTART_EVENT,
+#endif
 };
 
 extern void dwc3_set_notifier(void (*notify)(struct dwc3 *dwc3,
