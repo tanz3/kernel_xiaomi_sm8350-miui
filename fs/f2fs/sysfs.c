@@ -707,11 +707,20 @@ out:
 	}
 
 	if (!strcmp(a->attr.name, "last_age_weight")) {
-		if (t < 0 || t > 100)
+		if (t > 100)
 			return -EINVAL;
 		if (t == *ui)
 			return count;
 		*ui = (unsigned int)t;
+		return count;
+	}
+
+	if (!strcmp(a->attr.name, "ipu_policy")) {
+		if (t >= BIT(F2FS_IPU_MAX))
+			return -EINVAL;
+		if (t && f2fs_lfs_mode(sbi))
+			return -EINVAL;
+		SM_I(sbi)->ipu_policy = (unsigned int)t;
 		return count;
 	}
 
