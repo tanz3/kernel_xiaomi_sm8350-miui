@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -457,6 +458,9 @@ static int cam_flash_ops(struct cam_flash_ctrl *flash_ctrl,
 	return 0;
 }
 
+//State machine of soft light
+enum Flash_torch_Type FlashtorchType = cam_flash_Type_off;
+
 int cam_flash_off(struct cam_flash_ctrl *flash_ctrl)
 {
 	int rc = 0;
@@ -479,6 +483,7 @@ int cam_flash_off(struct cam_flash_ctrl *flash_ctrl)
 			"cannot apply streamoff settings");
 		}
 	}
+	FlashtorchType = cam_flash_Type_off;
 	return 0;
 }
 
@@ -487,6 +492,8 @@ static int cam_flash_low(
 	struct cam_flash_frame_setting *flash_data)
 {
 	int i = 0, rc = 0;
+	//This is the last current. It is necessary to determine whether the current is modified to avoid flickering caused by off
+	static int lastcur = 0;
 
 	if (!flash_data) {
 		CAM_ERR(CAM_FLASH, "Flash Data Null");
@@ -498,11 +505,26 @@ static int cam_flash_low(
 			cam_res_mgr_led_trigger_event(
 				flash_ctrl->flash_trigger[i],
 				LED_OFF);
+	if (flash_ctrl->switch_trigger)
+		cam_res_mgr_led_trigger_event(flash_ctrl->switch_trigger,
+			(enum led_brightness)LED_SWITCH_OFF);
+
+	//To change the current when the soft light is turned on, you need to turn it off first
+	if (lastcur != flash_data->led_current_ma[0] && flash_data->led_current_ma[0] > 0 && FlashtorchType != cam_flash_Type_off){
+		rc = cam_flash_off(flash_ctrl);
+	}
 
 	rc = cam_flash_ops(flash_ctrl, flash_data,
 		CAMERA_SENSOR_FLASH_OP_FIRELOW);
+
+	lastcur = flash_data->led_current_ma[0];
+
 	if (rc)
 		CAM_ERR(CAM_FLASH, "Fire Torch failed: %d", rc);
+	else
+	{
+		FlashtorchType = cam_flash_Type_low;
+	}
 
 	return rc;
 }
@@ -528,6 +550,10 @@ static int cam_flash_high(
 		CAMERA_SENSOR_FLASH_OP_FIREHIGH);
 	if (rc)
 		CAM_ERR(CAM_FLASH, "Fire Flash Failed: %d", rc);
+	else
+	{
+		FlashtorchType = cam_flash_Type_high;
+	}
 
 	return rc;
 }
@@ -963,7 +989,9 @@ int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl,
 		} else if (flash_data->opcode == CAM_PKT_NOP_OPCODE) {
 			CAM_DBG(CAM_FLASH, "NOP Packet");
 		} else {
-			rc = -EINVAL;
+			/* xiaomi add to ignore the invalid opcode - begin */
+			//rc = -EINVAL;
+			/* xiaomi add to ignore the invalid opcode - end */
 			CAM_ERR(CAM_FLASH, "Invalid opcode: %d req_id: %llu",
 				flash_data->opcode, req_id);
 			goto apply_setting_err;
@@ -1381,6 +1409,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 	uint32_t frm_offset = 0;
 	size_t len_of_buffer;
 	size_t remain_len;
+	bool is_trigger_eof = true; // xiaomi add
 	struct cam_control *ioctl_ctrl = NULL;
 	struct cam_packet *csl_packet = NULL;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
@@ -1610,6 +1639,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 			flash_operation_info =
 				(struct cam_flash_set_on_off *) cmd_buf;
+			is_trigger_eof = (bool)flash_operation_info->is_trigger_eof; // xiaomi add
 			if (!flash_operation_info) {
 				CAM_ERR(CAM_FLASH,
 					"flash_operation_info Null");
@@ -1833,7 +1863,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 
 		if ((csl_packet->header.op_code & 0xFFFFF) ==
 			CAM_FLASH_PACKET_OPCODE_SET_OPS) {
-			add_req.trigger_eof = true;
+			add_req.trigger_eof = is_trigger_eof; // xiaomi modify
 			if (flash_data->opcode == CAMERA_SENSOR_FLASH_OP_OFF) {
 				add_req.skip_at_sof = 1;
 				add_req.skip_at_eof = 1;

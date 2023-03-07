@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -269,6 +270,19 @@ int32_t cam_actuator_apply_settings(struct cam_actuator_ctrl_t *a_ctrl,
 			CAM_ERR(CAM_ACTUATOR,
 				"Failed to apply settings: %d",
 				rc);
+			/* xiaomi add to ignore the apply setting fail - begin */
+			usleep_range(1000, 1010);
+			rc = cam_actuator_i2c_modes_util(
+				&(a_ctrl->io_master_info),
+				i2c_list);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"Failed to re-apply settings: %d, skip",
+					rc);
+				rc = 0;
+				break;
+			}
+			/* xiaomi add to ignore the apply setting fail - end */
 		} else {
 			CAM_DBG(CAM_ACTUATOR,
 				"Success:request ID: %d",
@@ -305,6 +319,20 @@ int32_t cam_actuator_apply_request(struct cam_req_mgr_apply_request *apply)
 		a_ctrl->i2c_data.per_frame[request_id].request_id) &&
 		(a_ctrl->i2c_data.per_frame[request_id].is_settings_valid)
 		== 1) {
+
+#if defined(ZIJIN_CAM)
+		if ((a_ctrl->setting_apply_state == ACT_APPLY_SETTINGS_LATER) &&
+			(apply->request_id == 13)) {
+			usleep_range(10000, 10010);
+		}
+#endif
+
+#if defined(REDWOOD_CAM)
+		if ((a_ctrl->setting_apply_state == ACT_APPLY_SETTINGS_LATER) &&
+			(apply->request_id == 13)) {
+			usleep_range(3000, 3010);
+		}
+#endif
 		rc = cam_actuator_apply_settings(a_ctrl,
 			&a_ctrl->i2c_data.per_frame[request_id]);
 		if (rc < 0) {
