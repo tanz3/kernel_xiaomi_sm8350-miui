@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -284,15 +283,6 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 			csl_packet->header.request_id);
 		break;
 	}
-#if IS_ENABLED(CONFIG_ISPV2_AL6021)
-	case CAM_SENSOR_PACKET_OPCODE_SENSOR_ISPV2_POWERUP: {
-		i2c_reg_settings = &i2c_data->init_settings;
-		i2c_reg_settings->request_id = 0;
-		i2c_reg_settings->is_settings_valid = 0;
-		rc = cam_sensor_power_up_extra(s_ctrl);
-		return rc;
-	}
-#endif
 	case CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP: {
 		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
 			(s_ctrl->sensor_state == CAM_SENSOR_ACQUIRE)) {
@@ -985,6 +975,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			}
 		}
 		s_ctrl->sensor_state = CAM_SENSOR_START;
+
 		if (s_ctrl->bridge_intf.crm_cb &&
 			s_ctrl->bridge_intf.crm_cb->notify_timer) {
 			timer.link_hdl = s_ctrl->bridge_intf.link_hdl;
@@ -1394,16 +1385,7 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 					CAM_ERR(CAM_SENSOR,
 						"Failed to apply settings: %d",
 						rc);
-					msleep(20);
-					rc = cam_sensor_i2c_modes_util(
-						&(s_ctrl->io_master_info),
-						i2c_list);
-					if (rc < 0) {
-						CAM_ERR(CAM_SENSOR,
-							"Failed to reapply settings: %d, skip",
-							rc);
-						return rc;
-					}
+					return rc;
 				}
 			}
 			CAM_DBG(CAM_SENSOR, "applied req_id: %llu", req_id);

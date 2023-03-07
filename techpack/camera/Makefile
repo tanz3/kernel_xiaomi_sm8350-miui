@@ -92,23 +92,11 @@ LINUXINCLUDE    += \
 		-include $(srctree)/techpack/camera/config/sm6150cameraconf.h
 endif
 
+ifeq ($(CONFIG_MACH_XIAOMI_HAYDN), y)
+LINUXINCLUDE    += \
+		-include $(srctree)/techpack/camera/config/haydncameraconf.h
 endif
 
-#add camera macro
-ifdef CONFIG_MACH_XIAOMI_ZIJIN
-    KBUILD_CPPFLAGS += -DZIJIN_CAM
-endif
-
-ifdef CONFIG_MACH_XIAOMI_TAOYAO
-    KBUILD_CPPFLAGS += -DTAOYAO_CAM
-endif
-
-ifdef CONFIG_MACH_XIAOMI_REDWOOD
-    KBUILD_CPPFLAGS += -DREDWOOD_CAM
-endif
-
-ifdef CONFIG_MACH_XIAOMI_HAYDN
-    KBUILD_CPPFLAGS += -DHAYDN_CAM
 endif
 
 ifneq (,$(filter $(CONFIG_SPECTRA_CAMERA), y m))
