@@ -21,6 +21,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/dcvsh.h>
 
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SUGOV_POWER_EFFIENCY)
+#include <linux/cpufreq_effiency.h>
+#endif
+
 #define LUT_MAX_ENTRIES			40U
 #define LUT_SRC				GENMASK(31, 30)
 #define LUT_L_VAL			GENMASK(7, 0)
@@ -366,6 +370,10 @@ static void qcom_cpufreq_ready(struct cpufreq_policy *policy)
 	static struct thermal_cooling_device *cdev[NR_CPUS];
 	struct device_node *np;
 	unsigned int cpu = policy->cpu;
+
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SUGOV_POWER_EFFIENCY)
+	frequence_opp_init(policy);
+#endif
 
 	if (cdev[cpu])
 		return;
