@@ -281,8 +281,6 @@ struct rmap_walk_control {
 	bool try_lock;
 	bool contended;
 	struct vm_area_struct *target_vma;
-	bool try_lock;
-	bool contended;
 	/*
 	 * Return false if page table scanning in rmap_walk should be stopped.
 	 * Otherwise, return true.
