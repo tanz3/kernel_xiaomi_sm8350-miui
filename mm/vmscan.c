@@ -55,7 +55,6 @@
 #include <linux/shmem_fs.h>
 #include <linux/ctype.h>
 #include <linux/debugfs.h>
-#include <linux/simple_lmk.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -2330,7 +2329,7 @@ static void prepare_scan_count(pg_data_t *pgdat, struct scan_control *sc)
 	if (!sc->force_deactivate) {
 		unsigned long refaults;
 
-		if (inactive_is_low(target_lruvec, LRU_INACTIVE_ANON)
+		if (inactive_is_low(target_lruvec, LRU_INACTIVE_ANON))
 			sc->may_deactivate |= DEACTIVATE_ANON;
 		else
 			sc->may_deactivate &= ~DEACTIVATE_ANON;
@@ -4097,9 +4096,6 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 	 */
 	pr_err("mglru: min_ttl unsatisfied, calling OOM killer\n");
 	lru_gen_min_ttl_unsatisfied++;
-#ifdef CONFIG_ANDROID_SIMPLE_LMK
-	simple_lmk_trigger();
-#else
 	if (mutex_trylock(&oom_lock)) {
 		struct oom_control oc = {
 			.gfp_mask = sc->gfp_mask,
@@ -4109,7 +4105,6 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 
 		mutex_unlock(&oom_lock);
 	}
-#endif
 }
 
 /*
