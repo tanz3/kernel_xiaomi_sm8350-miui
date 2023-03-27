@@ -120,7 +120,6 @@ static int hwui_mon_checksum(void)
 	}
 
 	desc->tfm = shash;
-	desc->flags = 0;
 	ret = crypto_shash_init(desc);
 	if (ret) {
 		pr_err("Unable to init shash, ret = %d", ret);

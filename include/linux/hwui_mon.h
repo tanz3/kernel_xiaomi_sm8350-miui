@@ -27,4 +27,6 @@ void hwui_mon_handle_exec(struct filename *);
 int register_hwui_mon(struct hwui_mon_receiver *receiver);
 int unregister_hwui_mon(struct hwui_mon_receiver *receiver);
 
+extern bool in_jank;
+
 #endif /* _HWUI_MON_H_ */

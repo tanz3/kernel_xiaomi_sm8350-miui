@@ -8,10 +8,12 @@
 #include <linux/hwui_mon.h>
 #include <linux/module.h>
 
+bool in_jank = false;
 static void handler(unsigned int ui_frame_time)
 {
 	pr_info("Detect jank in %s with frametime = %d",
 	        current->comm, ui_frame_time);
+	in_jank = true;
 }
 
 static struct hwui_mon_receiver receiver = {
