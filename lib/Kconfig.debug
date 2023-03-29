@@ -282,7 +282,7 @@ config FRAME_WARN
 	default 1536 if (!64BIT && XTENSA)
 	default 1280 if KASAN && !64BIT
 	default 1024 if !64BIT
-	default 2048 if 64BIT
+	default 3072 if 64BIT
 	help
 	  Tell gcc to warn at build time for stack frames larger than this.
 	  Setting this too low will cause a lot of warnings.
