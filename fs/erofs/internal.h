@@ -402,7 +402,7 @@ static inline void *erofs_vm_map_ram(struct page **pages, unsigned int count)
 	int retried = 0;
 
 	while (1) {
-		void *p = vm_map_ram(pages, count, -1);
+		void *p = vm_map_ram(pages, count, -1, PAGE_KERNEL);
 
 		/* retry two more times (totally 3 times) */
 		if (p || ++retried >= 3)
