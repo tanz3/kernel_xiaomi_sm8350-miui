@@ -2225,7 +2225,6 @@ submit_and_realloc:
 	f2fs_update_iostat(F2FS_I_SB(inode), FS_DATA_READ_IO, F2FS_BLKSIZE);
 	ClearPageError(page);
 	*last_block_in_bio = block_nr;
-	goto out;
 confused:
 	if (bio) {
 		f2fs_submit_read_bio(F2FS_I_SB(inode), bio, DATA);
