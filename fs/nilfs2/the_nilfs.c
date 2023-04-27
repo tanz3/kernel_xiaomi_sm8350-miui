@@ -86,7 +86,6 @@ void destroy_nilfs(struct the_nilfs *nilfs)
 {
 	might_sleep();
 	if (nilfs_init(nilfs)) {
-		nilfs_sysfs_delete_device_group(nilfs);
 		brelse(nilfs->ns_sbh[0]);
 		brelse(nilfs->ns_sbh[1]);
 	}
@@ -274,6 +273,10 @@ int load_nilfs(struct the_nilfs *nilfs, struct super_block *sb)
 		goto failed;
 	}
 
+	err = nilfs_sysfs_create_device_group(sb);
+	if (unlikely(err))
+		goto sysfs_error;
+
 	if (valid_fs)
 		goto skip_recovery;
 
@@ -335,6 +338,9 @@ int load_nilfs(struct the_nilfs *nilfs, struct super_block *sb)
 	goto failed;
 
  failed_unload:
+	nilfs_sysfs_delete_device_group(nilfs);
+
+ sysfs_error:
 	iput(nilfs->ns_cpfile);
 	iput(nilfs->ns_sufile);
 	iput(nilfs->ns_dat);
@@ -642,10 +648,6 @@ int init_nilfs(struct the_nilfs *nilfs, struct super_block *sb, char *data)
 	nilfs->ns_mount_state = le16_to_cpu(sbp->s_state);
 
 	err = nilfs_store_log_cursor(nilfs, sbp);
-	if (err)
-		goto failed_sbh;
-
-	err = nilfs_sysfs_create_device_group(sb);
 	if (err)
 		goto failed_sbh;
 
