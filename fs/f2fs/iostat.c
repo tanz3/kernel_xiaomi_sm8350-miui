@@ -80,6 +80,8 @@ int __maybe_unused iostat_info_seq_show(struct seq_file *seq, void *offset)
 	seq_puts(seq, "[OTHER]\n");
 	seq_printf(seq, "fs discard:	%-16llu\n",
 				sbi->rw_iostat[FS_DISCARD]);
+	seq_printf(seq,"fs zone reset	%-16llu\n",
+				sbi->rw_iostat[FS_ZONE_RESET_IO]);
 
 	return 0;
 }
