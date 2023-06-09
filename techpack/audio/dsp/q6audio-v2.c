@@ -518,6 +518,8 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_HSIF2_TDM_RX_7;
 	case AFE_PORT_ID_HSIF2_TDM_TX_7:
 		return IDX_AFE_PORT_ID_HSIF2_TDM_TX_7;
+	case AFE_PORT_ID_PSEUDOPORT_01:
+		return IDX_AFE_PORT_ID_PSEUDOPORT_01;
 	default: return -EINVAL;
 	}
 }
@@ -1301,6 +1303,7 @@ int q6audio_is_digital_pcm_interface(u16 port_id)
 	case AFE_PORT_ID_HSIF2_TDM_TX_6:
 	case AFE_PORT_ID_HSIF2_TDM_RX_7:
 	case AFE_PORT_ID_HSIF2_TDM_TX_7:
+	case AFE_PORT_ID_PSEUDOPORT_01:
 		break;
 	default:
 		ret = -EINVAL;
@@ -1596,6 +1599,7 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_HSIF2_TDM_TX_6:
 	case AFE_PORT_ID_HSIF2_TDM_RX_7:
 	case AFE_PORT_ID_HSIF2_TDM_TX_7:
+	case AFE_PORT_ID_PSEUDOPORT_01:
 	{
 		ret = 0;
 		break;

@@ -1298,11 +1298,15 @@ static void swrm_disable_ports(struct swr_master *master,
 		}
 		value = ((mport->req_ch)
 					<< SWRM_DP_PORT_CTRL_EN_CHAN_SHFT);
+		dev_dbg(swrm->dev, "%s: value :%d\n", __func__, value);
 		value |= ((mport->offset2)
 					<< SWRM_DP_PORT_CTRL_OFFSET2_SHFT);
+		dev_dbg(swrm->dev, "%s: value :%d\n", __func__, value);
 		value |= ((mport->offset1)
 				<< SWRM_DP_PORT_CTRL_OFFSET1_SHFT);
+		dev_dbg(swrm->dev, "%s: value :%d\n", __func__, value);
 		value |= (mport->sinterval & 0xFF);
+		dev_dbg(swrm->dev, "%s: value :%d\n", __func__, value);
 
 		swr_master_write(swrm,
 				SWRM_DP_PORT_CTRL_BANK((i + 1), bank),

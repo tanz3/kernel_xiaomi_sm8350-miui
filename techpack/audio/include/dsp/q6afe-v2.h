@@ -382,6 +382,7 @@ enum {
 	IDX_AFE_PORT_ID_HSIF2_TDM_TX_6,
 	IDX_AFE_PORT_ID_HSIF2_TDM_RX_7,
 	IDX_AFE_PORT_ID_HSIF2_TDM_TX_7,
+	IDX_AFE_PORT_ID_PSEUDOPORT_01,
 	AFE_MAX_PORTS
 };
 
@@ -612,6 +613,11 @@ int afe_cal_init_hwdep(void *card);
 int afe_send_port_island_mode(u16 port_id);
 int afe_send_port_power_mode(u16 port_id);
 int afe_send_port_vad_cfg_params(u16 port_id);
+#ifdef CONFIG_MSM_CSPL
+int afe_apr_send_pkt_crus(void *data, int index, int set);
+int crus_afe_port_close(u16 port_id);
+int crus_afe_port_start(u16 port_id);
+#endif
 int afe_send_cmd_wakeup_register(void *handle, bool enable);
 void afe_register_wakeup_irq_callback(
 	void (*afe_cb_wakeup_irq)(void *handle));
@@ -697,4 +703,5 @@ void afe_tdm_paired_rx_cfg_val(int intf_idx, int afe_port_id,
 	struct afe_param_id_tdm_lane_cfg tdm_lane);
 int afe_paired_rx_tdm_port_ops(int intf_idx, bool enable, atomic_t *dai_group_ref);
 
+int afe_send_data(phys_addr_t buf_addr_p, u32 mem_map_handle, int bytes);
 #endif /* __Q6AFE_V2_H__ */

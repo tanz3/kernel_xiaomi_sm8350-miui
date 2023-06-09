@@ -2,7 +2,6 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/clk.h>
@@ -45,9 +44,23 @@
 #define TX_MACRO_ADC_MODE_CFG0_SHIFT 1
 
 #define TX_MACRO_DMIC_UNMUTE_DELAY_MS	40
+
+#if defined(CONFIG_TARGET_PRODUCT_TAOYAO)
 #define TX_MACRO_AMIC_UNMUTE_DELAY_MS	100
-#define TX_MACRO_DMIC_HPF_DELAY_MS	300
+#else
+#define TX_MACRO_AMIC_UNMUTE_DELAY_MS	200
+#endif
+
+#define TX_MACRO_DMIC_HPF_DELAY_MS	200
+#if defined(CONFIG_TARGET_PRODUCT_VILI) || defined(CONFIG_TARGET_PRODUCT_ZIJIN)
+#define TX_MACRO_AMIC_HPF_DELAY_MS	200
+#elif defined(CONFIG_TARGET_PRODUCT_TAOYAO)
 #define TX_MACRO_AMIC_HPF_DELAY_MS	300
+#else
+#define TX_MACRO_AMIC_HPF_DELAY_MS	100
+#endif
+
+struct tx_macro_priv *g_tx_priv;
 
 static int tx_amic_unmute_delay = TX_MACRO_AMIC_UNMUTE_DELAY_MS;
 module_param(tx_amic_unmute_delay, int, 0664);
@@ -163,7 +176,9 @@ struct tx_macro_priv {
 	struct work_struct tx_macro_add_child_devices_work;
 	struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[NUM_DECIMATORS];
+	struct delayed_work tx_hs_unmute_dwork;
 	u16 dmic_clk_div;
+	u16 reg_before_mute;
 	u32 version;
 	u32 is_used_tx_swr_gpio;
 	unsigned long active_ch_mask[TX_MACRO_MAX_DAIS];
@@ -575,11 +590,11 @@ static void tx_macro_tx_hpf_corner_freq_callback(struct work_struct *work)
 				dec_cfg_reg, TX_HPF_CUT_OFF_FREQ_MASK,
 				hpf_cut_off_freq << 5);
 		snd_soc_component_update_bits(component, hpf_gate_reg,
-						0x02, 0x02);
+						0x03, 0x02);
 		/* Minimum 1 clk cycle delay is required as per HW spec */
 		usleep_range(1000, 1010);
 		snd_soc_component_update_bits(component, hpf_gate_reg,
-						0x02, 0x00);
+						0x03, 0x01);
 	}
 }
 
@@ -605,6 +620,25 @@ static void tx_macro_mute_update_callback(struct work_struct *work)
 	dev_dbg(tx_priv->dev, "%s: decimator %u unmute\n",
 		__func__, decimator);
 }
+static void tx_macro_hs_unmute_dwork(struct work_struct *work)
+{
+	struct snd_soc_component *component = NULL;
+	struct tx_macro_priv *tx_priv = NULL;
+	struct delayed_work *delayed_work = NULL;
+	u16 reg_val = 0;
+	unsigned int reg = BOLERO_CDC_TX2_TX_VOL_CTL;
+
+	delayed_work = to_delayed_work(work);
+	tx_priv = container_of(delayed_work, struct tx_macro_priv, tx_hs_unmute_dwork);
+	component = tx_priv->component;
+	reg_val = snd_soc_component_read32(component, reg);
+	dev_info(tx_priv->dev, "%s: the reg(%#x) value before unmute is: %#x , reg_before_mute %#x \n",
+				__func__, reg, reg_val, tx_priv->reg_before_mute);
+	snd_soc_component_update_bits(component, reg,
+			0xff, tx_priv->reg_before_mute);
+	reg_val = snd_soc_component_read32(component, reg);
+	dev_info(tx_priv->dev, "%s: the reg(%#x) value after unmute is: %#x \n", __func__, reg, reg_val);
+}
 
 static int tx_macro_put_dec_enum(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
@@ -616,7 +650,9 @@ static int tx_macro_put_dec_enum(struct snd_kcontrol *kcontrol,
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val = 0;
 	u16 mic_sel_reg = 0;
+#ifndef CONFIG_TARGET_PRODUCT_TAOYAO
 	u16 dmic_clk_reg = 0;
+#endif
 	struct device *tx_dev = NULL;
 	struct tx_macro_priv *tx_priv = NULL;
 
@@ -662,6 +698,12 @@ static int tx_macro_put_dec_enum(struct snd_kcontrol *kcontrol,
 	}
 	if (strnstr(widget->name, "SMIC", strlen(widget->name))) {
 		if (val != 0) {
+#if defined(CONFIG_TARGET_PRODUCT_TAOYAO)
+            snd_soc_component_update_bits(component,
+					mic_sel_reg,
+					1 << 7, 0x0 << 7);
+			dev_dbg(component->dev, "%s: SMIC enter val=%d\n", __func__,val);
+#else
 			if (val < 5) {
 				snd_soc_component_update_bits(component,
 							mic_sel_reg,
@@ -680,6 +722,7 @@ static int tx_macro_put_dec_enum(struct snd_kcontrol *kcontrol,
 					dmic_clk_reg,
 					0x0E, tx_priv->dmic_clk_div << 0x1);
 			}
+#endif
 		}
 	} else {
 		/* DMIC selected */
@@ -733,6 +776,9 @@ static int tx_macro_tx_mixer_put(struct snd_kcontrol *kcontrol,
 
 	if (!tx_macro_get_data(component, &tx_dev, &tx_priv, __func__))
 		return -EINVAL;
+
+	dev_err(tx_dev, "%s: id:%d(%s) enable:%d active_ch_cnt:%d\n", __func__,
+		dai_id, widget->name, enable, tx_priv->active_ch_cnt[dai_id]);
 
 	if (enable) {
 		set_bit(dec_id, &tx_priv->active_ch_mask[dai_id]);
@@ -1012,6 +1058,39 @@ static int tx_macro_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+void bolero_tx_macro_mute_hs(void)
+{
+	struct snd_soc_component *component = NULL;
+	u16 reg_val = 0;
+	unsigned int reg = BOLERO_CDC_TX2_TX_VOL_CTL;
+	unsigned int mask = 0xff;
+	unsigned int val = 0xac;
+
+	int tx_unmute_delay_plugout = 1200;
+	if (!g_tx_priv)
+		return;
+
+	component = g_tx_priv->component;
+
+	if (delayed_work_pending(&g_tx_priv->tx_hs_unmute_dwork)) {
+		dev_err(component->dev, "%s: there is already a work, give up unmute\n",
+				__func__);
+		return;
+	}
+
+	g_tx_priv->reg_before_mute = snd_soc_component_read32(component, reg);
+	dev_info(component->dev, "%s: the reg(%#x) value before mute is: %#x \n",
+			__func__, reg, g_tx_priv->reg_before_mute);
+	snd_soc_component_update_bits(component, reg, mask, val);
+	reg_val = snd_soc_component_read32(component, reg);
+	dev_info(component->dev, "%s: the reg(%#x) value after mute is: %#x \n",
+			__func__, reg, reg_val);
+	schedule_delayed_work(&g_tx_priv->tx_hs_unmute_dwork,
+			msecs_to_jiffies(tx_unmute_delay_plugout));
+	return;
+}
+EXPORT_SYMBOL(bolero_tx_macro_mute_hs);
+
 static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 			       struct snd_kcontrol *kcontrol, int event)
 {
@@ -1030,12 +1109,12 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 	int unmute_delay = TX_MACRO_DMIC_UNMUTE_DELAY_MS;
 	struct device *tx_dev = NULL;
 	struct tx_macro_priv *tx_priv = NULL;
+	u16 reg_val = 0;
 
 	if (!tx_macro_get_data(component, &tx_dev, &tx_priv, __func__))
 		return -EINVAL;
 
 	decimator = w->shift;
-
 	dev_dbg(component->dev, "%s(): widget = %s decimator = %u\n", __func__,
 			w->name, decimator);
 
@@ -1105,26 +1184,33 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				   &tx_priv->tx_mute_dwork[decimator].dwork,
 				   msecs_to_jiffies(unmute_delay));
 		if (tx_priv->tx_hpf_work[decimator].hpf_cut_off_freq !=
-							CF_MIN_3DB_150HZ)
+							CF_MIN_3DB_150HZ){
 			queue_delayed_work(system_freezable_wq,
 				&tx_priv->tx_hpf_work[decimator].dwork,
 				msecs_to_jiffies(hpf_delay));
-		snd_soc_component_update_bits(component,
-				hpf_gate_reg, 0x03, 0x02);
-		if (!is_smic_enabled(component, decimator))
 			snd_soc_component_update_bits(component,
-				hpf_gate_reg, 0x03, 0x00);
-		snd_soc_component_update_bits(component,
-				hpf_gate_reg, 0x03, 0x01);
-		/*
-		 * 6ms delay is required as per HW spec
-		 */
-		usleep_range(6000, 6010);
+					hpf_gate_reg, 0x03, 0x02);
+			if (!is_smic_enabled(component, decimator))
+				snd_soc_component_update_bits(component,
+					hpf_gate_reg, 0x02, 0x00);
+			/*
+			 * 6ms delay is required as per HW spec
+			 */
+			usleep_range(6000, 6010);
+			snd_soc_component_update_bits(component,
+					hpf_gate_reg, 0x02, 0x00);
+		}
 		/* apply gain after decimator is enabled */
+		reg_val = snd_soc_component_read32(component, tx_gain_ctl_reg);
+		dev_info(component->dev, "%s: the reg(%#x) value before enable dec is: %#x \n",
+			__func__, tx_gain_ctl_reg, reg_val);
 		snd_soc_component_write(component, tx_gain_ctl_reg,
 			      snd_soc_component_read32(component,
 					tx_gain_ctl_reg));
-		if (tx_priv->bcs_enable) {
+		reg_val = snd_soc_component_read32(component, tx_gain_ctl_reg);
+		dev_info(component->dev, "%s: the reg(%#x) value after enable dec is: %#x \n",
+			__func__, tx_gain_ctl_reg, reg_val);
+		if (tx_priv->bcs_enable && decimator == 0) {
 			if (tx_priv->version == BOLERO_VERSION_2_1)
 				snd_soc_component_update_bits(component,
 					BOLERO_CDC_VA_TOP_CSR_SWR_CTRL, 0x0F,
@@ -1218,7 +1304,7 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
 			dec_cfg_reg, 0x06, 0x00);
 		snd_soc_component_update_bits(component, tx_vol_ctl_reg,
 						0x10, 0x00);
-		if (tx_priv->bcs_enable) {
+		if (tx_priv->bcs_enable && decimator == 0) {
 			snd_soc_component_update_bits(component, dec_cfg_reg,
 					0x01, 0x00);
 			snd_soc_component_update_bits(component,
@@ -1354,6 +1440,8 @@ static int tx_macro_get_channel_map(struct snd_soc_dai *dai,
 		dev_err(tx_dev, "%s: Invalid AIF\n", __func__);
 		break;
 	}
+	dev_err(tx_dev, "%s: id:%d(%s) ch_mask:0x%x active_ch_cnt:%d active_mask: 0x%lx\n",
+		__func__, dai->id, dai->name, *tx_slot, *tx_num, tx_priv->active_ch_mask[dai->id]);
 	return 0;
 }
 
@@ -3187,6 +3275,7 @@ static int tx_macro_init(struct snd_soc_component *component)
 		INIT_DELAYED_WORK(&tx_priv->tx_mute_dwork[i].dwork,
 			  tx_macro_mute_update_callback);
 	}
+	INIT_DELAYED_WORK(&tx_priv->tx_hs_unmute_dwork, tx_macro_hs_unmute_dwork);
 	tx_priv->component = component;
 
 	for (i = 0; i < ARRAY_SIZE(tx_macro_reg_init); i++)
@@ -3383,7 +3472,7 @@ static int tx_macro_probe(struct platform_device *pdev)
 	if (!tx_priv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, tx_priv);
-
+	g_tx_priv = tx_priv;
 	tx_priv->dev = &pdev->dev;
 	ret = of_property_read_u32(pdev->dev.of_node, "reg",
 				   &tx_base_addr);

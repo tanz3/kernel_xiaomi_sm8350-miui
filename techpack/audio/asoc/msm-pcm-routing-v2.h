@@ -669,6 +669,7 @@ enum {
 	EXT_EC_REF_PRI_TDM_TX,
 	EXT_EC_REF_SEC_TDM_TX,
 	EXT_EC_REF_SENARY_MI2S_TX,
+	EXT_EC_REF_TERT_TDM_TX,
 };
 
 #define INVALID_SESSION -1
@@ -752,6 +753,7 @@ struct msm_pcm_stream_app_type_cfg {
 	uint32_t copp_token;
 	int bit_width;
 	int copp_perf_mode;
+	int channel;
 };
 
 struct msm_pcm_channel_mixer_v2 {

@@ -537,5 +537,6 @@ static void __exit adsp_loader_exit(void)
 }
 module_exit(adsp_loader_exit);
 
+MODULE_SOFTDEP("pre: subsys-pil-tz");
 MODULE_DESCRIPTION("ADSP Loader module");
 MODULE_LICENSE("GPL v2");
