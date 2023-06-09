@@ -6773,7 +6773,7 @@ static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		SND_SOC_DAILINK_REG(tert_tdm_rx_0),
 	},
-#if !defined(CONFIG_SND_SOC_TFA9874) || !defined(CONFIG_SND_SOC_AW88263S_TDM)] || !defined(CONFIG_SND_SOC_AW88263S_M20_TDM) 
+#if !defined(CONFIG_SND_SOC_TFA9874) || !defined(CONFIG_SND_SOC_AW88263S_TDM) || !defined(CONFIG_SND_SOC_AW88263S_M20_TDM) 
 	{
 		.name = LPASS_BE_TERT_TDM_RX_1,
 		.stream_name = "Tertiary TDM1 Playback",

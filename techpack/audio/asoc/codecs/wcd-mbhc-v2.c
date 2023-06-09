@@ -53,8 +53,6 @@
 
 #define HEADSET_EVENT_MAX (5)
 
-static struct dentry* mbhc_debugfs_dir;
-
 static ssize_t headset_status_read(struct file *filp, char __user *buffer,
 		size_t count, loff_t *ppos);
 static ssize_t headset_status_write(struct file *filp, const char __user *buffer,
@@ -2028,12 +2026,6 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_component *component,
 	const char *hph_thre = "qcom,msm-mbhc-hs-mic-min-threshold-mv";
 
 	pr_debug("%s: enter\n", __func__);
-
-	mbhc_debugfs_dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
-	if (!IS_ERR(mbhc_debugfs_dir)) {
-		debugfs_create_file(DEBUGFS_HEADSET_STATUS_FILE_NAME, 0666,
-				mbhc_debugfs_dir, NULL, &mbhc_headset_status_fops);
-	}
 
 	ret = of_property_read_u32(card->dev->of_node, hph_switch, &hph_swh);
 	if (ret) {
