@@ -1462,6 +1462,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	strlcpy(subsys->desc->fw_name, desc->name,
 			sizeof(subsys->desc->fw_name));
 
+//BUG-682073,chenhengshi.wt,20210819,add,ro.wt_final_release
+#ifdef WT_FINAL_RELEASE
+	subsys->restart_level = RESET_SUBSYS_COUPLED;
+#else
+	subsys->restart_level = RESET_SOC;
+#endif
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->early_notify = subsys_get_early_notif_info(desc->name);
 

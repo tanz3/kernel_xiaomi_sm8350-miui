@@ -4,6 +4,12 @@
 #
 menu "Qualcomm SoC drivers"
 
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status"
+	default n
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface
+
 config QCOM_AOSS_QMP
 	tristate "Qualcomm AOSS Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -550,6 +556,11 @@ config MSM_REMOTEQDSS
 	  events. Provide a sysfs interface for debug tools to dynamically
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
+
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	  Provide a interface for getting the maximum frequency supported by cpu core
 
 config QCOM_SMEM_STATE
 	bool
