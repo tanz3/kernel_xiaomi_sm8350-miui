@@ -1085,6 +1085,9 @@
   i2c_register_driver
   i2c_smbus_read_byte
   i2c_smbus_write_byte
+  i2c_smbus_read_word_data
+  i2c_smbus_write_i2c_block_data
+  i2c_smbus_read_i2c_block_data
   i2c_smbus_read_byte_data
   i2c_smbus_write_byte_data
   __i2c_smbus_xfer
@@ -2899,3 +2902,6 @@
   pcie_capability_clear_and_set_word
   pci_device_is_present
   pci_find_bus
+  class_for_each_device
+  typec_partner_set_identity
+  device_set_of_node_from_dev
