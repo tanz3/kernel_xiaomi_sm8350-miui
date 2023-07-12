@@ -3374,7 +3374,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 
 	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
-	if (!mdwc->in_restart) {
+	if (!(mdwc->in_restart && mdwc->vbus_active)) {
 		/*
 		 * release wakeup source with timeout to defer system suspend to
 		 * handle case where on USB cable disconnect, SUSPEND and DISCONNECT

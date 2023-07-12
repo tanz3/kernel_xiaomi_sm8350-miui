@@ -1214,6 +1214,7 @@ static const struct file_operations dwc3_gadget_int_events_fops = {
 static ssize_t dwc3_gadget_l1_store(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
+#ifdef CONFIG_WT_QGKI
 	struct seq_file *s = file->private_data;
 	struct dwc3	*dwc = s->private;
 	bool		 enable_l1;
@@ -1231,7 +1232,7 @@ static ssize_t dwc3_gadget_l1_store(struct file *file,
 
 	pr_info("dwc3 gadget lpm : %s. Perform a plugout/plugin\n",
 				enable_l1 ? "enabled" : "disabled");
-
+#endif
 	return count;
 }
 
