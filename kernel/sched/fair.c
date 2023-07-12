@@ -6603,6 +6603,13 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		walt_task_skip_min_cpu(p))
 		*order_index = 1;
 
+#ifdef CONFIG_MIGT
+	if (game_vip_task(p)) {
+		*order_index = 1;
+		return;
+	}
+#endif
+
 	for (i = *order_index ; i < num_sched_clusters - 1; i++) {
 		if (task_demand_fits(p, cpumask_first(&cpu_array[i][0])))
 			break;
@@ -7106,6 +7113,10 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	bool is_uclamp_boosted = uclamp_boosted(p);
 	bool boosted = is_uclamp_boosted || (task_boost > 0);
 	int start_cpu, order_index, end_index;
+
+#ifdef CONFIG_MIGT
+	need_idle = need_idle || (!!game_vip_task(p));
+#endif
 
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
 			cpumask_test_cpu(prev_cpu, &p->cpus_mask))
