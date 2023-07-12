@@ -3446,8 +3446,8 @@ static const struct file_operations clk_enabled_list_fops = {
 	.llseek		= seq_lseek,
 	.release	= seq_release,
 };
-
-static u32 debug_suspend;
+/*CHK95931,lizhenhua.wt,MODIFY,20210831,add debug log*/
+static u32 debug_suspend=1;
 
 /*
  * Print the names of all enabled clocks and their parents if
