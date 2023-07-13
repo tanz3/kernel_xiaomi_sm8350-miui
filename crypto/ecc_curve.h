@@ -54,6 +54,7 @@ static struct ecc_curve nist_p256 = {
 	.b = nist_p256_b
 };
 
+
 /* NIST P-384 */
 static u64 nist_p384_g_x[] = { 0x3A545E3872760AB7ull, 0x5502F25DBF55296Cull,
 				0x59F741E082542A38ull, 0x6E1D3B628BA79B98ull,
