@@ -571,6 +571,7 @@ static ssize_t dwc3_testmode_write(struct file *file,
 	unsigned long		flags;
 	u32			testmode = 0;
 	char			buf[32] = {};
+	int			ret;
 
 	if (atomic_read(&dwc->in_lpm)) {
 		seq_puts(s, "USB device is powered off\n");
