@@ -292,6 +292,13 @@ enum xm_property_id {
 	XM_PROP_FG1_TREMQ,
 	XM_PROP_FG1_TFULLQ,
 	XM_PROP_FG_UPDATE_TIME,
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+	XM_PROP_FG1_CELL1_VOL,
+	XM_PROP_FG1_CELL2_VOL,
+	XM_PROP_FG_VENDOR_ID,
+	XM_PROP_SHIPMODE_COUNT_RESET,
+	XM_PROP_SPORT_MODE,
+#endif
 	XM_PROP_MAX,
 };
 enum {
@@ -4099,7 +4106,8 @@ static ssize_t reverse_chg_state_show(struct class *c,
 	return scnprintf(buf, PAGE_SIZE, "%u", pst->prop[XM_PROP_REVERSE_CHG_STATE]);
 }
 static CLASS_ATTR_RO(reverse_chg_state);
-#if 0
+
+#ifdef CONFIG_MACH_XIAOMI_ODIN
 static ssize_t wls_fw_state_show(struct class *c,
 					struct class_attribute *attr, char *buf)
 {
@@ -4116,6 +4124,7 @@ static ssize_t wls_fw_state_show(struct class *c,
 }
 static CLASS_ATTR_RO(wls_fw_state);
 #endif
+
 static ssize_t wls_car_adapter_show(struct class *c,
 					struct class_attribute *attr, char *buf)
 {
@@ -5126,6 +5135,130 @@ static ssize_t fg1_tfullq_show(struct class *c,
 }
 static CLASS_ATTR_RO(fg1_tfullq);
 
+
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+static ssize_t fg1_cell1_vol_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_FG1_CELL1_VOL);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_FG1_CELL1_VOL]);
+}
+static CLASS_ATTR_RO(fg1_cell1_vol);
+
+static ssize_t fg1_cell2_vol_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_FG1_CELL2_VOL);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_FG1_CELL2_VOL]);
+}
+static CLASS_ATTR_RO(fg1_cell2_vol);
+
+static ssize_t fg_vendor_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_FG_VENDOR_ID);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_FG_VENDOR_ID]);
+}
+static CLASS_ATTR_RO(fg_vendor);
+
+static ssize_t shipmode_count_reset_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_SHIPMODE_COUNT_RESET, val);
+	if (rc < 0)
+		return rc;
+
+	return count;
+}
+
+static ssize_t shipmode_count_reset_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_SHIPMODE_COUNT_RESET);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_SHIPMODE_COUNT_RESET]);
+}
+static CLASS_ATTR_RW(shipmode_count_reset);
+
+
+static ssize_t sport_mode_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_SPORT_MODE, val);
+	if (rc < 0)
+		return rc;
+
+	return count;
+}
+
+static ssize_t sport_mode_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_SPORT_MODE);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_SPORT_MODE]);
+}
+static CLASS_ATTR_RW(sport_mode);
+#endif
+
 static struct attribute *battery_class_attrs[] = {
 	&class_attr_soh.attr,
 	&class_attr_resistance.attr,
@@ -5205,7 +5338,9 @@ static struct attribute *battery_class_attrs[] = {
 	&class_attr_bt_state.attr,
 	&class_attr_reverse_chg_mode.attr,
 	&class_attr_reverse_chg_state.attr,
-	//&class_attr_wls_fw_state.attr,
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+	&class_attr_wls_fw_state.attr,
+#endif
 	&class_attr_wireless_chip_fw.attr,
 	&class_attr_wls_bin.attr,
 	&class_attr_rx_vout.attr,
@@ -5258,6 +5393,13 @@ static struct attribute *battery_class_attrs[] = {
 	&class_attr_fg1_tremq.attr,
 	&class_attr_fg1_tfullq.attr,
 	&class_attr_power_max.attr,
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+	&class_attr_fg1_cell1_vol.attr,
+	&class_attr_fg1_cell2_vol.attr,
+	&class_attr_fg_vendor.attr,
+	&class_attr_shipmode_count_reset.attr,
+	&class_attr_sport_mode.attr,
+#endif
 	NULL,
 };
 ATTRIBUTE_GROUPS(battery_class);
@@ -5295,7 +5437,9 @@ static void generate_xm_charge_uvent(struct work_struct *work)
 		"POWER_SUPPLY_TX_MAC=\n",		//length=20+16
 		"POWER_SUPPLY_RX_CEP=\n",		//length=20+16
 		"POWER_SUPPLY_RX_CR=\n",		//length=19+8
-		//"POWER_SUPPLY_WLS_FW_STATE=\n",	//length=26+1
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+		"POWER_SUPPLY_WLS_FW_STATE=\n",	//length=26+1
+#endif
 		"POWER_SUPPLY_WLS_CAR_ADAPTER=\n",//length=29+1
 #endif
 		"POWER_SUPPLY_SOC_DECIMAL=\n",	//length=31+8
@@ -5395,7 +5539,9 @@ static void xm_charger_debug_info_print_work(struct work_struct *work)
 	int vbus_vol_uv, ibus_ua;
 	int interval = DISCHARGE_PERIOD_S;
 	union power_supply_propval val = {0, };
-	//struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+#endif
 
 	usb_psy = bcdev->psy_list[PSY_TYPE_USB].psy;
 	if (usb_psy != NULL) {
@@ -5410,6 +5556,10 @@ static void xm_charger_debug_info_print_work(struct work_struct *work)
 	}
 
 	if (usb_present == 1) {
+#ifdef CONFIG_MACH_XIAOMI_ODIN
+		rc = read_property_id(bcdev, pst, XM_PROP_FG_VENDOR_ID);
+#endif
+
 		rc = usb_psy_get_prop(usb_psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
 		if (!rc)
 			vbus_vol_uv = val.intval;
