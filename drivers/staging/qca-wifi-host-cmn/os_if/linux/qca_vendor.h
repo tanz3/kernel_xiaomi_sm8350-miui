@@ -4823,20 +4823,33 @@ enum qca_wlan_vendor_attr_config {
 	 */
 	QCA_WLAN_VENDOR_ATTR_CONFIG_FT_OVER_DS = 80,
 
+	/*
+	 * 8-bit unsigned value. This attribute can be used to configure the
+	 * firmware to enable/disable ARP/NS offload feature. Possible values
+	 * for this attribute are 0-Disable and 1-Enable.
+	 *
+	 * This attribute is only applicable for STA/P2P-Client interface,
+	 * and is optional, default behavior is APR/NS offload Enable.
+	 *
+	 * This attribute can be set in disconncted and connected state, and
+	 * will restore to default behavior if interface is closed.
+	 */
+	QCA_WLAN_VENDOR_ATTR_CONFIG_ARP_NS_OFFLOAD = 81,
+
 	/* 8-bit unsigned value to trigger dynamic nss feature.
 	 * 1-Enable, 0-Disable
 	 */
-	QCA_WLAN_VENDOR_ATTR_CONFIG_DYNAMIC_NSS_SWITCH = 81,
+	QCA_WLAN_VENDOR_ATTR_CONFIG_DYNAMIC_NSS_SWITCH = 82,
 
 	/* 8-bit unsigned value to set bt in active or not.
 	 * 1-active, 0-inactive
 	 */
-	QCA_WLAN_VENDOR_ATTR_CONFIG_BT_ACTIVE = 82,
+	QCA_WLAN_VENDOR_ATTR_CONFIG_BT_ACTIVE = 83,
 
 	/* 8-bit unsigned value to set nss and ant mode.
 	 * 1-1x1, 2-2x2
 	 */
-	QCA_WLAN_VENDOR_ATTR_CONFIG_SET_NSS_ANT = 83,
+	QCA_WLAN_VENDOR_ATTR_CONFIG_SET_NSS_ANT = 84,
 
 	/* 8-bit unsigned value, whenever wifi calling (wfc) begin or end,
 	 * Userspace sends this information to driver/firmware to configure
