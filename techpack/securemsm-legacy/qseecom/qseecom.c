@@ -35,7 +35,6 @@
 #include <soc/qcom/qseecom_scm.h>
 #include <soc/qcom/qseecomi.h>
 #include <asm/cacheflush.h>
-#include "qseecom_kernel.h"
 #include <linux/crypto-qti-common.h>
 #include <linux/delay.h>
 #include <linux/signal.h>
@@ -48,6 +47,7 @@
 #include <linux/interconnect.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/qtee_shmbridge.h>
+#include "misc/qseecom_kernel.h"
 #include "compat_qseecom.h"
 
 #define QSEECOM_DEV			"qseecom"
@@ -3758,8 +3758,8 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 				(uint32_t)(__qseecom_uvirt_to_kphys(
 				data, (uintptr_t)req->resp_buf));
 		} else {
-			send_data_req.req_ptr = *((uint32_t *)(&req->cmd_req_buf));
-			send_data_req.rsp_ptr = *((uint32_t *)(&req->resp_buf));
+			send_data_req.req_ptr = (uint32_t)req->cmd_req_buf;
+			send_data_req.rsp_ptr = (uint32_t)req->resp_buf;
 		}
 
 		send_data_req.req_len = req->cmd_req_len;

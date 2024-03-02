@@ -629,15 +629,6 @@ config CRYPTO_DEV_QCE
 	  hardware. To compile this driver as a module, choose M here. The
 	  module will be called qcrypto.
 
-config CRYPTO_DEV_QCOM_MSM_QCE
-	tristate "QTI Crypto Engine (QCE) module"
-	depends on ARCH_QCOM
-	help
-	  This driver supports QTI Crypto Engine accelerator hardware, which
-	  is present on SDM845, etc. This is the core crypto driver which adds
-	  CE5.0 functionalities. To compile this driver as a module, choose
-	  M here. The module will be called QCE50.
-
 config CRYPTO_DEV_QCRYPTO
 	tristate "QTI Crypto accelerator"
 	depends on ARCH_QCOM

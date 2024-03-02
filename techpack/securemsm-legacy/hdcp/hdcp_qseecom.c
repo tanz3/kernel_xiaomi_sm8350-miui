@@ -24,7 +24,7 @@
 #include <linux/hdcp_qseecom.h>
 #include <linux/kthread.h>
 
-#include "qseecom_kernel.h"
+#include "misc/qseecom_kernel.h"
 
 #define HDCP2P2_APP_NAME      "hdcp2p2"
 #define HDCP1_APP_NAME        "hdcp1"
